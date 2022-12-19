@@ -19,6 +19,7 @@ track votes as normalized VP:
 		$year = 31104000; // 360 * 24 * 3600;
 
 		$get_max_term = () => params.max_term OTHERWISE 360; // in days
+		$get_min_term = () => params.min_term OTHERWISE 14; // in days
 		$get_decay_factor = () => params.decay_factor OTHERWISE 8; // VP decays 8 times within a year
 
 		$get_param = ($name, $default) => {
@@ -109,7 +110,7 @@ track votes as normalized VP:
 							$term = trigger.data.term; // in days
 							require($term, "no term");
 							require(is_assoc(trigger.data.percentages), "no percentages");
-							require(is_integer($term) AND $term > 0 AND $term <= $max_term, "invalid term");
+							require(is_integer($term) AND $term >= $get_min_term() AND $term <= $max_term, "invalid term");
 
 							$new_expiry_ts = timestamp + $term * 24 * 3600;
 							require($new_expiry_ts >= ($user_perp.expiry_ts OTHERWISE 0), "the new term should expire after " || timestamp_to_string($user_perp.expiry_ts));

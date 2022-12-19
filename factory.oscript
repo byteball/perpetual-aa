@@ -1,7 +1,7 @@
 {
 	doc_url: "https://pyth.ooo/perpetual-factory.json",
 	init: `{
-		$base_aa = 'PEBPHWMLIPBYDSJGXNI5CFG3NL43MU37';
+		$base_aa = '7PLJPCQHMFDJNOBVU2FOQW4QAXKYPB26';
 	}`,
 	messages: {
 		cases: [
@@ -39,11 +39,15 @@
 					});
 
 
-					// governance AA params
-					foreach(['challenging_period', 'freeze_period'], 2, $p => {
+					// staking AA params
+					foreach(['challenging_period', 'max_term', 'min_term', 'decay_factor'], 4, $p => {
 						$value = trigger.data[$p];
 						if (exists($value)) {
-							require(is_integer($value) AND $value > 0, "bad " || $p);
+							require(typeof($value) == 'number' AND $value > 0, $p||" must be a positive number");
+							if ($p == 'challenging_period' OR $p == 'max_term' OR $p == 'min_term')
+								require(is_integer($value), $p||" must be integer");
+							if ($p == 'decay_factor')
+								require($value > 1, "decay factor must be >1");
 							$params[$p] = $value;
 						}
 					});

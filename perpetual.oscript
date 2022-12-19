@@ -259,7 +259,7 @@
 		$to = trigger.data.to OTHERWISE trigger.address;
 
 
-		$staking_base_aa = 'OXVM6UVZNGFSQXDKHVPCKB5THT2RPXHC';
+		$staking_base_aa = 'RKFZAQCWQKQTJE6NOLJ2N6P27VM37ZGY';
 
 	}`,
 	messages: {
@@ -272,8 +272,12 @@
 					$params = {aa: this_address};
 					if (params.challenging_period)
 						$params.challenging_period = params.challenging_period;
-					if (params.freeze_period)
-						$params.freeze_period = params.freeze_period;
+					if (params.max_term)
+						$params.max_term = params.max_term;
+					if (params.min_term)
+						$params.min_term = params.min_term;
+					if (params.decay_factor)
+						$params.decay_factor = params.decay_factor;
 					$staking_aa = [
 						'autonomous agent',
 						{

@@ -36,6 +36,24 @@ track votes as normalized VP:
 			$user ? $user.normalized_vp * $get_decay_factor()^((timestamp - $common_ts)/$year) : 0
 		};
 
+		$get_rewards = ($user_address, $perp_asset) => {
+			$state = var['state'];
+			$emissions = var['emissions'];
+			
+			$aa_state = var[params.aa]['state'];
+			$asset0 = $aa_state.asset0;
+			$bAsset0 = $asset0 == $perp_asset;
+
+			$perp = var['asset_'||$perp_asset];
+			require($perp, "no such perp "||$perp_asset);
+			$perp_vps = var['perp_vps_'||$perp.group_key] OTHERWISE {};
+			$user_perp_key = 'user_' || $user_address || '_' || $perp.asset_key;
+			$user_perp = var[$user_perp_key] OTHERWISE {balance: 0, last_perp_emissions: {}, rewards: {}};
+			$total_perp_balance = var['perp_asset_balance_' || $perp.asset_key];
+			($lib_aa||'')#0.$distribute_emissions($state, $perp, $user_perp, $perp_vps, $total_perp_balance, $emissions, $bAsset0);
+			$user_perp.rewards // keyed by reward_asset_key
+		};
+
 	}`,
 	init: `{
 

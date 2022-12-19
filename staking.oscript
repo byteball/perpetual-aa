@@ -108,11 +108,12 @@ track votes as normalized VP:
 						$perp_asset = trigger.data.perp_asset;
 						if (trigger.data.withdraw)
 							$bWithdraw = true;
-						$bWithdrawReward = true;
 						$reward_asset = trigger.data.reward_asset;
-						require($reward_asset, "no reward asset");
-						$reward_asset_key = var['reward_assets_'||$reward_asset];
-						require($reward_asset_key, "reward asset not known");
+						if ($reward_asset) {
+							$bWithdrawReward = true;
+							$reward_asset_key = var['reward_assets_'||$reward_asset];
+							require($reward_asset_key, "reward asset not known");
+						}
 					}
 					$bAsset0 = $asset0 == $perp_asset;
 

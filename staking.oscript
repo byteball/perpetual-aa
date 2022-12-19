@@ -17,7 +17,7 @@ track votes as normalized VP:
 		$lib_aa = '7IJECM2B473WUKKVGKSNFVBPBR5FM3UB';
 		$common_ts = 1657843200; // Fri Jul 15 2022 00:00:00 GMT+0000
 		$year = 31104000; // 360 * 24 * 3600;
-		$max_pools_per_group = 30;
+		$max_perps_per_group = 30;
 
 		$get_max_term = () => params.max_term OTHERWISE 360; // in days
 		$get_min_term = () => params.min_term OTHERWISE 14; // in days
@@ -175,7 +175,7 @@ track votes as normalized VP:
 									response['deposited'] = $deposit_amount;
 							}
 							if ($bWithdrawReward)
-								$user_perp.rewards[$reward_asset_key] = 0;
+								delete($user_perp.rewards, $reward_asset_key); // remove the key to save capacity in case this reward asset gets blacklisted
 							
 							if ($bAsset0){
 								if ($bDeposit){
@@ -481,7 +481,7 @@ track votes as normalized VP:
 							$last_group_num = var['last_group_num'];
 							$last_perp_vps = var['perp_vps_g'||$last_group_num] OTHERWISE {};
 							// +1 adds the 'total' key
-							if (!$last_group_num OR length($last_perp_vps) >= $max_pools_per_group + 1){
+							if (!$last_group_num OR length($last_perp_vps) >= $max_perps_per_group + 1){
 								var['last_group_num'] += 1;
 								$group_num = $last_group_num + 1;
 								$perp.group_key = 'g'||$group_num;

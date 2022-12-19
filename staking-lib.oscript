@@ -13,7 +13,7 @@
 				? $user_perp.normalized_vp/$state.total_normalized_vp 
 				: ($total_perp_balance ? $user_perp.balance/$total_perp_balance : 0);
 
-			foreach($emissions, 25, ($reward_asset_key, $asset_emissions) => {
+			foreach($emissions, 15, ($reward_asset_key, $asset_emissions) => {
 				// if re-whitelisted
 				if ($asset_emissions < ($perp.last_emissions[$reward_asset_key] OTHERWISE 0)){
 					$perp.last_emissions[$reward_asset_key] = 0;
@@ -46,7 +46,7 @@
 				$perp_vps[$perp_asset_key] = $perp_vps[$perp_asset_key] + $added_vp;
 			});
 			require($totals.total == 100, "percentages sum to "||$totals.total);
-			require(length($votes) <= 100, "max total number of supported perps is 100");
+			require(length($votes) <= 30, "max total number of supported perps is 30");
 			$perp_vps.total = $perp_vps.total + $delta_normalized_vp;
 		};
 
@@ -74,11 +74,11 @@
 				$group_vps[$group_key] = $group_vps[$group_key] + $delta_vp;
 			});
 			require(abs($totals.total) < $totals.max * 1e-14, "total votes changed by "||$totals.total); // allow some rounding error
-			require(length($votes) <= 100, "max total number of supported perps is 100");
+			require(length($votes) <= 30, "max total number of supported perps is 30");
 		};
 
 		$remove_votes = ($votes, $perp_vps) => {
-			foreach($votes, 100, ($perp_asset_key, $vp) => {
+			foreach($votes, 30, ($perp_asset_key, $vp) => {
 				require(exists($perp_vps[$perp_asset_key]), "perp asset key "||$perp_asset_key||" not found in the indicated group");
 				$perp_vps[$perp_asset_key] = $perp_vps[$perp_asset_key] - $votes[$perp_asset_key];
 			});

@@ -1,8 +1,8 @@
 /* 
 var['perp_vps_XXXX'] structure:
 assoc: perp_asset_key => voting power
-{"12345":1234.56789012345,"12346":1234.56789012345}
-25 characters per perp asset, 4096 max, 4096/25=160 assets
+{"a12345":1234.56789012345,"a12346":1234.56789012345}
+26 characters per perp asset, 1024 max, 1024/26=39 assets. One more key is for "total", hence max 38 assets.
 
 track only normalized VP: don't need to update VP all the time when nothing is added/removed
 newly added VP has increasingly larger weight and dilutes the existing VP faster.
@@ -14,9 +14,10 @@ track votes as normalized VP:
 	doc_url: "https://pyth.ooo/staking.json",
 	getters: `{
 
-		$lib_aa = 'MPIQWD5QIXF7JAYRLONONCGOXZHXO6RN';
+		$lib_aa = '7IJECM2B473WUKKVGKSNFVBPBR5FM3UB';
 		$common_ts = 1657843200; // Fri Jul 15 2022 00:00:00 GMT+0000
 		$year = 31104000; // 360 * 24 * 3600;
+		$max_pools_per_group = 30;
 
 		$get_max_term = () => params.max_term OTHERWISE 360; // in days
 		$get_min_term = () => params.min_term OTHERWISE 14; // in days
@@ -282,7 +283,8 @@ track votes as normalized VP:
 								if ($new_total_vp > 0){ // add to the whitelist (or re-add)
 									$emissions = var['emissions'] OTHERWISE {};
 									if (!$asset_key){ // create a new reward asset
-										require(length($emissions) < 25, "too many reward assets, remove something first");
+										// we'll have 2 keys per reward asset in $perp and $user_perp
+										require(length($emissions) < 15, "too many reward assets, remove something first");
 										var['last_reward_asset_num'] += 1;
 										$new_asset_key = 'e' || var['last_reward_asset_num'];
 										var['reward_assets_'||$reward_asset] = $new_asset_key;
@@ -478,7 +480,8 @@ track votes as normalized VP:
 
 							$last_group_num = var['last_group_num'];
 							$last_perp_vps = var['perp_vps_g'||$last_group_num] OTHERWISE {};
-							if (!$last_group_num OR length($last_perp_vps) >= 101){
+							// +1 adds the 'total' key
+							if (!$last_group_num OR length($last_perp_vps) >= $max_pools_per_group + 1){
 								var['last_group_num'] += 1;
 								$group_num = $last_group_num + 1;
 								$perp.group_key = 'g'||$group_num;

@@ -266,6 +266,46 @@ describe('Various trades in perpetual', function () {
 		await this.checkCurve()
 	})
 
+	it('Alice stakes more asset0', async () => {
+		const amount = Math.floor(this.state.s0/10)
+		const { unit, error } = await this.alice.sendMulti({
+			outputs_by_asset: {
+				[this.asset0]: [{ address: this.staking_aa, amount: amount }],
+				base: [{ address: this.staking_aa, amount: 1e4 }],
+			},
+			messages: [{
+				app: 'data',
+				payload: {
+					deposit: 1,
+					term: 360,
+					voted_group_key: 'g1',
+					percentages: {a0: 100},
+				}
+			}],
+			spend_unconfirmed: 'all',
+		})
+		expect(error).to.be.null
+		expect(unit).to.be.validUnit
+
+		const { response } = await this.network.getAaResponseToUnitOnNode(this.alice, unit)
+	//	console.log('logs', JSON.stringify(response.logs, null, 2))
+		console.log(response.response.error)
+	//	await this.network.witnessUntilStable(response.response_unit)
+		expect(response.response.error).to.be.undefined
+		expect(response.bounced).to.be.false
+		expect(response.response_unit).to.be.null
+
+		const { vars } = await this.alice.readAAStateVars(this.staking_aa)
+		console.log('staking vars', vars)
+		this.perp_vps_g1 = vars.perp_vps_g1
+
+		const old_vp = this.alice_vp
+		this.alice_vp = vars['user_' + this.aliceAddress + '_a0'].normalized_vp
+		expect(this.alice_vp - old_vp).to.equalWithPrecision(amount * 8**((response.timestamp - 1657843200)/360/24/3600), 12)
+
+		await this.checkCurve()
+	})
+
 	it('Alice votes for addition of BTC asset', async () => {
 		const { unit, error } = await this.alice.triggerAaWithData({
 			toAddress: this.staking_aa,
@@ -1178,6 +1218,45 @@ describe('Various trades in perpetual', function () {
 		expect(vars['asset_' + this.btc_asset].received_emissions).to.deep.eq({e1: 4e9 * 0.4})
 		expect(vars['user_' + this.aliceAddress + '_a1']).to.be.undefined
 		this.perp_vps_g1 = vars.perp_vps_g1
+	})
+
+	it('Alice stakes asset0 again', async () => {
+		const amount = Math.floor(this.state.s0/10)
+		const { unit, error } = await this.alice.sendMulti({
+			outputs_by_asset: {
+				[this.asset0]: [{ address: this.staking_aa, amount: amount }],
+				base: [{ address: this.staking_aa, amount: 1e4 }],
+			},
+			messages: [{
+				app: 'data',
+				payload: {
+					deposit: 1,
+					term: 360,
+					voted_group_key: 'g1',
+					percentages: {a0: 100},
+				}
+			}],
+			spend_unconfirmed: 'all',
+		})
+		expect(error).to.be.null
+		expect(unit).to.be.validUnit
+
+		const { response } = await this.network.getAaResponseToUnitOnNode(this.alice, unit)
+	//	console.log('logs', JSON.stringify(response.logs, null, 2))
+		console.log(response.response.error)
+	//	await this.network.witnessUntilStable(response.response_unit)
+		expect(response.response.error).to.be.undefined
+		expect(response.bounced).to.be.false
+		expect(response.response_unit).to.be.null
+
+		const { vars } = await this.alice.readAAStateVars(this.staking_aa)
+		console.log('staking vars', vars)
+		this.perp_vps_g1 = vars.perp_vps_g1
+
+		this.alice_vp = vars['user_' + this.aliceAddress + '_a0'].normalized_vp
+		expect(this.alice_vp).to.closeTo((5 + 1 + 1) * amount * 8**((response.timestamp - 1657843200)/360/24/3600), 20)
+
+		await this.checkCurve()
 	})
 
 	after(async () => {

@@ -121,7 +121,7 @@ track votes as normalized VP:
 					$perp = var['asset_'||$perp_asset];
 					require($perp, "perp asset not initialized");
 
-					$emissions = var['emissions'];
+					$emissions = var['emissions'] OTHERWISE {};
 					$user_perp_key = 'user_' || $user_address || '_' || $perp.asset_key;
 					$user_perp = var[$user_perp_key] OTHERWISE {balance: 0, last_perp_emissions: {}, rewards: {}};
 

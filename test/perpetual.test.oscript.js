@@ -116,6 +116,55 @@ describe('Various trades in perpetual', function () {
 			expect(r).to.be.closeTo(reserve, 6)
 		}
 
+		this.checkVotes = (vars) => {
+			expect(vars.group_vps.total).to.eq(vars.state.total_normalized_vp);
+			let users = [];
+			let grand_total = 0;
+			let all_vps = {};
+			for (let v in vars) {
+				if (v.startsWith('user_') && v.endsWith('_a0')) {
+					const user = v.substr(5, 32);
+					users.push(user);
+				}
+				if (v.startsWith('perp_vps_g')) {
+					const group_num = v.substr(10);
+					const perp_vps = vars[v];
+					let total = 0;
+					for (let key in perp_vps) {
+						if (key !== 'total' && perp_vps[key]) {
+							total += perp_vps[key];
+							all_vps[key] = perp_vps[key];
+						}
+					}
+					expect(total).to.closeTo(perp_vps.total, 1.5);
+					expect(total).to.closeTo(vars.group_vps['g' + group_num] || 0, 1.5);
+					grand_total += total;
+				}
+			}
+			expect(grand_total).to.closeTo(vars.state.total_normalized_vp, 1);
+		
+			let total_normalized_vp = 0;
+			let all_users_vps = {};
+			for (let user of users) {
+				const { normalized_vp } = vars['user_' + user + '_a0'];
+				total_normalized_vp += normalized_vp;
+				let total_votes = 0;
+				const votes = vars['votes_' + user];
+				for (let key in votes) {
+					total_votes += votes[key];
+					if (!all_users_vps[key])
+						all_users_vps[key] = 0;
+					all_users_vps[key] += votes[key];
+				}
+				expect(total_votes).to.closeTo(normalized_vp, 0.8);
+			}
+			expect(total_normalized_vp).to.closeTo(vars.state.total_normalized_vp, 0.9)
+			expect(Object.keys(all_vps).length).to.eq(Object.keys(all_users_vps).length)
+			for (let key in all_vps)
+				expect(all_vps[key]).to.closeTo(all_users_vps[key], 0.8);
+		}
+
+
 	})
 
 	it('Post data feed', async () => {
@@ -264,6 +313,7 @@ describe('Various trades in perpetual', function () {
 		expect(this.alice_vp).to.equalWithPrecision(amount * 8**((response.timestamp - 1657843200)/360/24/3600), 12)
 
 		await this.checkCurve()
+		this.checkVotes(vars)
 	})
 
 	it('Alice stakes more asset0', async () => {
@@ -304,6 +354,7 @@ describe('Various trades in perpetual', function () {
 		expect(this.alice_vp - old_vp).to.equalWithPrecision(amount * 8**((response.timestamp - 1657843200)/360/24/3600), 12)
 
 		await this.checkCurve()
+		this.checkVotes(vars)
 	})
 
 	it('Alice votes for addition of BTC asset', async () => {
@@ -337,6 +388,7 @@ describe('Various trades in perpetual', function () {
 		console.log('perp vars', perp_vars)
 
 		await this.checkCurve()
+		this.checkVotes(staking_vars)
 	})
 
 	it('Alice buys BTC-pegged asset in a presale', async () => {
@@ -552,6 +604,7 @@ describe('Various trades in perpetual', function () {
 		console.log('perp vars', perp_vars)
 
 		await this.checkCurve()
+		this.checkVotes(staking_vars)
 	})
 
 	it('Alice buys SPACEX-pegged asset in a presale after the price has halved', async () => {
@@ -850,6 +903,7 @@ describe('Various trades in perpetual', function () {
 		expect(staking_vars['reward_assets_'+this.oswap]).to.eq('e1')
 		expect(staking_vars['emissions']).to.deep.eq({e1: 0})
 		
+		this.checkVotes(staking_vars)
 	})
 
 	it('Receive reward asset emissions', async () => {
@@ -876,6 +930,7 @@ describe('Various trades in perpetual', function () {
 		const { vars: staking_vars } = await this.alice.readAAStateVars(this.staking_aa)
 		console.log('staking_vars', staking_vars)
 		expect(staking_vars['emissions']).to.deep.eq({e1: amount})
+		this.checkVotes(staking_vars)
 	})
 
 	it('Alice moves a part of her VP to BTC and SPACEX assets', async () => {
@@ -901,6 +956,7 @@ describe('Various trades in perpetual', function () {
 
 		const { vars: staking_vars } = await this.alice.readAAStateVars(this.staking_aa)
 		console.log('staking_vars', staking_vars)
+		this.checkVotes(staking_vars)
 	})
 
 	it('Alice stakes BTC', async () => {
@@ -929,9 +985,10 @@ describe('Various trades in perpetual', function () {
 		expect(response.bounced).to.be.false
 		expect(response.response_unit).to.be.null
 
-		const { vars } = await this.alice.readAAStateVars(this.staking_aa)
-		console.log('staking_vars', vars)
-		this.perp_vps_g1 = vars.perp_vps_g1
+		const { vars: staking_vars } = await this.alice.readAAStateVars(this.staking_aa)
+		console.log('staking_vars', staking_vars)
+		this.perp_vps_g1 = staking_vars.perp_vps_g1
+		this.checkVotes(staking_vars)
 	})
 
 	it('Bob stakes SPACEX', async () => {
@@ -960,9 +1017,10 @@ describe('Various trades in perpetual', function () {
 		expect(response.bounced).to.be.false
 		expect(response.response_unit).to.be.null
 
-		const { vars } = await this.alice.readAAStateVars(this.staking_aa)
-		console.log('staking_vars', vars)
-		this.perp_vps_g1 = vars.perp_vps_g1
+		const { vars: staking_vars } = await this.alice.readAAStateVars(this.staking_aa)
+		console.log('staking_vars', staking_vars)
+		this.perp_vps_g1 = staking_vars.perp_vps_g1
+		this.checkVotes(staking_vars)
 	})
 
 
@@ -990,6 +1048,7 @@ describe('Various trades in perpetual', function () {
 		const { vars: staking_vars } = await this.alice.readAAStateVars(this.staking_aa)
 		console.log('staking_vars', staking_vars)
 		expect(staking_vars['emissions']).to.deep.eq({e1: 3e9})
+		this.checkVotes(staking_vars)
 	})
 
 	it('Alice harvests OSWAP rewards from staking BTC', async () => {
@@ -1024,12 +1083,13 @@ describe('Various trades in perpetual', function () {
 			},
 		], 1)
 
-		const { vars } = await this.alice.readAAStateVars(this.staking_aa)
-		console.log('staking vars', vars)
-		expect(vars['asset_' + this.btc_asset].last_emissions).to.deep.eq({e1: 3e9})
-		expect(vars['asset_' + this.btc_asset].received_emissions).to.deep.eq({e1: 3e9 * 0.4})
-		expect(vars['user_' + this.aliceAddress + '_a1'].last_perp_emissions).to.deep.eq({e1: 3e9 * 0.4})
-		this.perp_vps_g1 = vars.perp_vps_g1
+		const { vars: staking_vars } = await this.alice.readAAStateVars(this.staking_aa)
+		console.log('staking vars', staking_vars)
+		expect(staking_vars['asset_' + this.btc_asset].last_emissions).to.deep.eq({e1: 3e9})
+		expect(staking_vars['asset_' + this.btc_asset].received_emissions).to.deep.eq({e1: 3e9 * 0.4})
+		expect(staking_vars['user_' + this.aliceAddress + '_a1'].last_perp_emissions).to.deep.eq({e1: 3e9 * 0.4})
+		this.perp_vps_g1 = staking_vars.perp_vps_g1
+		this.checkVotes(staking_vars)
 	})
 
 	it('Bob harvests OSWAP rewards from staking SPACEX', async () => {
@@ -1064,12 +1124,13 @@ describe('Various trades in perpetual', function () {
 			},
 		], 1)
 
-		const { vars } = await this.bob.readAAStateVars(this.staking_aa)
-		console.log('staking vars', vars)
-		expect(vars['asset_' + this.spacex_asset].last_emissions).to.deep.eq({e1: 3e9})
-		expect(vars['asset_' + this.spacex_asset].received_emissions.e1).to.closeTo(3e9 * 0.2, 1)
-		expect(vars['user_' + this.bobAddress + '_a2'].last_perp_emissions.e1).to.closeTo(3e9 * 0.2, 0.001)
-		this.perp_vps_g1 = vars.perp_vps_g1
+		const { vars: staking_vars } = await this.bob.readAAStateVars(this.staking_aa)
+		console.log('staking vars', staking_vars)
+		expect(staking_vars['asset_' + this.spacex_asset].last_emissions).to.deep.eq({e1: 3e9})
+		expect(staking_vars['asset_' + this.spacex_asset].received_emissions.e1).to.closeTo(3e9 * 0.2, 1)
+		expect(staking_vars['user_' + this.bobAddress + '_a2'].last_perp_emissions.e1).to.closeTo(3e9 * 0.2, 0.001)
+		this.perp_vps_g1 = staking_vars.perp_vps_g1
+		this.checkVotes(staking_vars)
 	})
 
 
@@ -1097,6 +1158,7 @@ describe('Various trades in perpetual', function () {
 		const { vars: staking_vars } = await this.alice.readAAStateVars(this.staking_aa)
 		console.log('staking_vars', staking_vars)
 		expect(staking_vars['emissions']).to.deep.eq({e1: 4e9})
+		this.checkVotes(staking_vars)
 	})
 
 	it('Alice stakes more BTC and OSWAP rewards get updated', async () => {
@@ -1125,13 +1187,14 @@ describe('Various trades in perpetual', function () {
 		expect(response.bounced).to.be.false
 		expect(response.response_unit).to.be.null
 
-		const { vars } = await this.alice.readAAStateVars(this.staking_aa)
-		console.log('staking vars', vars)
-		expect(vars['asset_' + this.btc_asset].last_emissions).to.deep.eq({e1: 4e9})
-		expect(vars['asset_' + this.btc_asset].received_emissions).to.deep.eq({e1: 4e9 * 0.4})
-		expect(vars['user_' + this.aliceAddress + '_a1'].last_perp_emissions).to.deep.eq({e1: 4e9 * 0.4})
-		expect(vars['user_' + this.aliceAddress + '_a1'].rewards).to.deep.eq({e1: 1e9 * 0.4})
-		this.perp_vps_g1 = vars.perp_vps_g1
+		const { vars: staking_vars } = await this.alice.readAAStateVars(this.staking_aa)
+		console.log('staking vars', staking_vars)
+		expect(staking_vars['asset_' + this.btc_asset].last_emissions).to.deep.eq({e1: 4e9})
+		expect(staking_vars['asset_' + this.btc_asset].received_emissions).to.deep.eq({e1: 4e9 * 0.4})
+		expect(staking_vars['user_' + this.aliceAddress + '_a1'].last_perp_emissions).to.deep.eq({e1: 4e9 * 0.4})
+		expect(staking_vars['user_' + this.aliceAddress + '_a1'].rewards).to.deep.eq({e1: 1e9 * 0.4})
+		this.perp_vps_g1 = staking_vars.perp_vps_g1
+		this.checkVotes(staking_vars)
 	})
 
 
@@ -1167,12 +1230,13 @@ describe('Various trades in perpetual', function () {
 			},
 		], 1)
 
-		const { vars } = await this.alice.readAAStateVars(this.staking_aa)
-		console.log('staking vars', vars)
-		expect(vars['asset_' + this.asset0].last_emissions).to.deep.eq({e1: 4e9})
-		expect(vars['asset_' + this.asset0].received_emissions).to.deep.eq({e1: 4e9 * 0.4})
-		expect(vars['user_' + this.aliceAddress + '_a0'].last_perp_emissions).to.deep.eq({e1: 4e9 * 0.4})
-		this.perp_vps_g1 = vars.perp_vps_g1
+		const { vars: staking_vars } = await this.alice.readAAStateVars(this.staking_aa)
+		console.log('staking vars', staking_vars)
+		expect(staking_vars['asset_' + this.asset0].last_emissions).to.deep.eq({e1: 4e9})
+		expect(staking_vars['asset_' + this.asset0].received_emissions).to.deep.eq({e1: 4e9 * 0.4})
+		expect(staking_vars['user_' + this.aliceAddress + '_a0'].last_perp_emissions).to.deep.eq({e1: 4e9 * 0.4})
+		this.perp_vps_g1 = staking_vars.perp_vps_g1
+		this.checkVotes(staking_vars)
 	})
 
 	it('Alice withdraws BTC and harvests OSWAP rewards from staking BTC', async () => {
@@ -1212,12 +1276,13 @@ describe('Various trades in perpetual', function () {
 			},
 		], 1)
 
-		const { vars } = await this.alice.readAAStateVars(this.staking_aa)
-		console.log('staking vars', vars)
-		expect(vars['asset_' + this.btc_asset].last_emissions).to.deep.eq({e1: 4e9})
-		expect(vars['asset_' + this.btc_asset].received_emissions).to.deep.eq({e1: 4e9 * 0.4})
-		expect(vars['user_' + this.aliceAddress + '_a1']).to.be.undefined
-		this.perp_vps_g1 = vars.perp_vps_g1
+		const { vars: staking_vars } = await this.alice.readAAStateVars(this.staking_aa)
+		console.log('staking vars', staking_vars)
+		expect(staking_vars['asset_' + this.btc_asset].last_emissions).to.deep.eq({e1: 4e9})
+		expect(staking_vars['asset_' + this.btc_asset].received_emissions).to.deep.eq({e1: 4e9 * 0.4})
+		expect(staking_vars['user_' + this.aliceAddress + '_a1']).to.be.undefined
+		this.perp_vps_g1 = staking_vars.perp_vps_g1
+		this.checkVotes(staking_vars)
 	})
 
 	it('Alice stakes asset0 again', async () => {
@@ -1249,14 +1314,15 @@ describe('Various trades in perpetual', function () {
 		expect(response.bounced).to.be.false
 		expect(response.response_unit).to.be.null
 
-		const { vars } = await this.alice.readAAStateVars(this.staking_aa)
-		console.log('staking vars', vars)
-		this.perp_vps_g1 = vars.perp_vps_g1
+		const { vars: staking_vars } = await this.alice.readAAStateVars(this.staking_aa)
+		console.log('staking vars', staking_vars)
+		this.perp_vps_g1 = staking_vars.perp_vps_g1
 
-		this.alice_vp = vars['user_' + this.aliceAddress + '_a0'].normalized_vp
+		this.alice_vp = staking_vars['user_' + this.aliceAddress + '_a0'].normalized_vp
 		expect(this.alice_vp).to.closeTo((5 + 1 + 1) * amount * 8**((response.timestamp - 1657843200)/360/24/3600), 20)
 
 		await this.checkCurve()
+		this.checkVotes(staking_vars)
 	})
 
 	after(async () => {

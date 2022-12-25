@@ -32,7 +32,7 @@
 				if (!$price_aa)
 					return;
 				$target_price = $price_aa#3.$get_target_price();
-				if (!is_integer($target_price))
+				if (typeof($target_price) != 'number')
 					return;
 			}
 			
@@ -76,7 +76,7 @@
 		//	$state.coef = $c / sqrt(1 + $delta_a * $pow2($s * $c / $r));
 
 			$new_c = $c * sqrt(1 - $s * $r * $delta_p / ($r*$r - $a * $pow2($c * $s)));
-			require(($new_c - $c) * $delta_p <= 0, "c should change opposit to p");
+			require(($new_c - $c) * $delta_p <= 0, "c should change opposite to p");
 			$new_a = ($p + $delta_p) * $r / $new_c/$new_c / $s;
 			require(($new_a - $a) * $delta_p >= 0, "a should change as p");
 			$asset_info.a = $new_a;
@@ -340,17 +340,18 @@
 						require(trigger.data.price_aa, "no price_aa");
 					}
 					else if ($name == 'change_price_aa' OR $name == 'change_drift_rate')
-						require(trigger.data.asset, "no asset");
+						require($asset, "no asset");
 					else if ($name == 'add_preipo'){
 						require($value == 'yes', "can't remove preipo");
 						require(trigger.data.symbol, "no symbol");
 						require(trigger.data.initial_auction_price, "no initial_auction_price");
 						require(trigger.data.max_tokens, "no max_tokens");
 					}
+					$bAddNewAsset = ($name == 'add_price_aa' OR $name == 'add_preipo');
 				}`,
 				messages: [
 					{
-						if: `{$name == 'add_price_aa' OR $name == 'add_preipo'}`,
+						if: `{$bAddNewAsset}`,
 						app: 'asset',
 						payload: {
 							// without cap
@@ -364,7 +365,7 @@
 						}
 					},
 					{ // call back to staking AA to init the new perp asset
-						if: `{$name == 'add_price_aa' OR $name == 'add_preipo'}`,
+						if: `{$bAddNewAsset}`,
 						app: 'payment',
 						payload: {
 							asset: 'base',
@@ -376,7 +377,7 @@
 					{
 						app: 'state',
 						state: `{
-							if ($name == 'add_price_aa' OR $name == 'add_preipo'){
+							if ($bAddNewAsset){
 								response['asset'] = response_unit;
 								$a_info = { // start a presale
 								//	supply: 0, 

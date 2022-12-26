@@ -99,6 +99,10 @@ describe('Various trades in perpetual', function () {
 			return await this.executeGetter(this.perp_aa, 'get_price', [asset, bWithPriceAdjustment])
 		}
 
+		this.get_exchange_result = async (asset, tokens, delta_r) => {
+			return await this.executeGetter(this.perp_aa, 'get_exchange_result', [asset, tokens, delta_r])
+		}
+
 		this.get_auction_price = async (asset) => {
 			return await this.executeGetter(this.perp_aa, 'get_auction_price', [asset])
 		}
@@ -242,6 +246,8 @@ describe('Various trades in perpetual', function () {
 
 	it('Alice buys asset0', async () => {
 		const amount = 100e9
+		const res = await this.get_exchange_result(this.asset0, 0, amount)
+
 		const { unit, error } = await this.alice.sendMulti({
 			outputs_by_asset: {
 				[this.reserve_asset]: [{ address: this.perp_aa, amount: amount + this.network_fee_on_top }],
@@ -267,13 +273,13 @@ describe('Various trades in perpetual', function () {
 
 		const { unitObj } = await this.alice.getUnitInfo({ unit: response.response_unit })
 		console.log(Utils.getExternalPayments(unitObj))
-	/*	expect(Utils.getExternalPayments(unitObj)).to.deep.equalInAnyOrder([
+		expect(Utils.getExternalPayments(unitObj)).to.deep.equalInAnyOrder([
 			{
-				asset: this.asset,
+				asset: this.asset0,
 				address: this.aliceAddress,
-				amount: new_issued_shares,
+				amount: res.delta_s,
 			},
-		])*/
+		])
 
 		const { vars } = await this.alice.readAAStateVars(this.perp_aa)
 		console.log('perp vars', vars)
@@ -473,6 +479,8 @@ describe('Various trades in perpetual', function () {
 
 	it('Alice buys more BTC', async () => {
 		const amount = 1e9
+		const res = await this.get_exchange_result(this.btc_asset, 0, amount)
+
 		const { unit, error } = await this.alice.sendMulti({
 			outputs_by_asset: {
 				[this.reserve_asset]: [{ address: this.perp_aa, amount: amount + this.network_fee_on_top }],
@@ -498,13 +506,13 @@ describe('Various trades in perpetual', function () {
 
 		const { unitObj } = await this.alice.getUnitInfo({ unit: response.response_unit })
 		console.log(Utils.getExternalPayments(unitObj))
-	/*	expect(Utils.getExternalPayments(unitObj)).to.deep.equalInAnyOrder([
+		expect(Utils.getExternalPayments(unitObj)).to.deep.equalInAnyOrder([
 			{
-				asset: this.asset,
+				asset: this.btc_asset,
 				address: this.aliceAddress,
-				amount: new_issued_shares,
+				amount: res.delta_s,
 			},
-		])*/
+		])
 
 		const { vars } = await this.alice.readAAStateVars(this.perp_aa)
 		console.log('perp vars', vars)
@@ -533,6 +541,8 @@ describe('Various trades in perpetual', function () {
 
 	it('Alice buys more BTC after the price got corrected', async () => {
 		const amount = 1e9
+		const res = await this.get_exchange_result(this.btc_asset, 0, amount)
+
 		const { unit, error } = await this.alice.sendMulti({
 			outputs_by_asset: {
 				[this.reserve_asset]: [{ address: this.perp_aa, amount: amount + this.network_fee_on_top }],
@@ -558,13 +568,13 @@ describe('Various trades in perpetual', function () {
 
 		const { unitObj } = await this.alice.getUnitInfo({ unit: response.response_unit })
 		console.log(Utils.getExternalPayments(unitObj))
-	/*	expect(Utils.getExternalPayments(unitObj)).to.deep.equalInAnyOrder([
+		expect(Utils.getExternalPayments(unitObj)).to.deep.equalInAnyOrder([
 			{
-				asset: this.asset,
+				asset: this.btc_asset,
 				address: this.aliceAddress,
-				amount: new_issued_shares,
+				amount: res.delta_s,
 			},
-		])*/
+		])
 
 		const { vars } = await this.alice.readAAStateVars(this.perp_aa)
 		console.log('perp vars', vars)
@@ -779,6 +789,8 @@ describe('Various trades in perpetual', function () {
 
 	it('Alice buys more SPACEX', async () => {
 		const amount = 1e9
+		const res = await this.get_exchange_result(this.spacex_asset, 0, amount)
+
 		const { unit, error } = await this.alice.sendMulti({
 			outputs_by_asset: {
 				[this.reserve_asset]: [{ address: this.perp_aa, amount: amount + this.network_fee_on_top }],
@@ -804,13 +816,13 @@ describe('Various trades in perpetual', function () {
 
 		const { unitObj } = await this.alice.getUnitInfo({ unit: response.response_unit })
 		console.log(Utils.getExternalPayments(unitObj))
-	/*	expect(Utils.getExternalPayments(unitObj)).to.deep.equalInAnyOrder([
+		expect(Utils.getExternalPayments(unitObj)).to.deep.equalInAnyOrder([
 			{
-				asset: this.asset,
+				asset: this.spacex_asset,
 				address: this.aliceAddress,
-				amount: new_issued_shares,
+				amount: res.delta_s,
 			},
-		])*/
+		])
 
 		const { vars } = await this.alice.readAAStateVars(this.perp_aa)
 		console.log('perp vars', vars)
@@ -832,6 +844,8 @@ describe('Various trades in perpetual', function () {
 
 	it('Alice sells BTC', async () => {
 		const amount = 0.5e9
+		const res = await this.get_exchange_result(this.btc_asset, amount, 0)
+
 		const { unit, error } = await this.alice.sendMulti({
 			outputs_by_asset: {
 				[this.btc_asset]: [{ address: this.perp_aa, amount: amount }],
@@ -857,13 +871,13 @@ describe('Various trades in perpetual', function () {
 
 		const { unitObj } = await this.alice.getUnitInfo({ unit: response.response_unit })
 		console.log(Utils.getExternalPayments(unitObj))
-	/*	expect(Utils.getExternalPayments(unitObj)).to.deep.equalInAnyOrder([
+		expect(Utils.getExternalPayments(unitObj)).to.deep.equalInAnyOrder([
 			{
-				asset: this.asset,
+				asset: this.reserve_asset,
 				address: this.aliceAddress,
-				amount: new_issued_shares,
+				amount: res.payout,
 			},
-		])*/
+		])
 
 		const { vars } = await this.alice.readAAStateVars(this.perp_aa)
 		console.log('perp vars', vars)

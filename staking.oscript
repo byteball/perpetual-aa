@@ -50,7 +50,7 @@ track votes as normalized VP:
 			$user_perp_key = 'user_' || $user_address || '_' || $perp.asset_key;
 			$user_perp = var[$user_perp_key] OTHERWISE {balance: 0, last_perp_emissions: {}, rewards: {}};
 			$total_perp_balance = var['perp_asset_balance_' || $perp.asset_key];
-			($lib_aa||'')#0.$distribute_emissions($state, $perp, $user_perp, $perp_vps, $total_perp_balance, $emissions, $bAsset0);
+			($lib_aa||'')#1.$distribute_emissions($state, $perp, $user_perp, $perp_vps, $total_perp_balance, $emissions, $bAsset0);
 			$user_perp.rewards // keyed by reward_asset_key
 		};
 

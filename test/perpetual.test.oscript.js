@@ -78,12 +78,14 @@ describe('Various trades in perpetual', function () {
 		expect(error).to.be.null
 		this.btc_price_aa_address = btc_price_aa_address
 
-		this.executeGetter = async (getter, args = []) => {
+		this.executeGetter = async (aa, getter, args = []) => {
 			const { result, error } = await this.alice.executeGetter({
-				aaAddress: this.perp_aa,
+				aaAddress: aa,
 				getter,
 				args
 			})
+			if (error)
+				console.log(error)
 			expect(error).to.be.null
 			return result
 		}
@@ -94,11 +96,15 @@ describe('Various trades in perpetual', function () {
 		}
 
 		this.get_price = async (asset, bWithPriceAdjustment = true) => {
-			return await this.executeGetter('get_price', [asset, bWithPriceAdjustment])
+			return await this.executeGetter(this.perp_aa, 'get_price', [asset, bWithPriceAdjustment])
 		}
 
 		this.get_auction_price = async (asset) => {
-			return await this.executeGetter('get_auction_price', [asset])
+			return await this.executeGetter(this.perp_aa, 'get_auction_price', [asset])
+		}
+
+		this.get_rewards = async (user_address, perp_asset) => {
+			return await this.executeGetter(this.staking_aa, 'get_rewards', [user_address, perp_asset])
 		}
 
 		this.checkCurve = async () => {
@@ -1052,6 +1058,10 @@ describe('Various trades in perpetual', function () {
 	})
 
 	it('Alice harvests OSWAP rewards from staking BTC', async () => {
+		const expected_reward = 2e9 * 0.4
+		const rewards = await this.get_rewards(this.aliceAddress, this.btc_asset)
+		expect(rewards).to.deep.eq({ e1: expected_reward })
+
 		const { unit, error } = await this.alice.triggerAaWithData({
 			toAddress: this.staking_aa,
 			amount: 1e4,
@@ -1079,7 +1089,7 @@ describe('Various trades in perpetual', function () {
 			{
 				asset: this.oswap,
 				address: this.aliceAddress,
-				amount: 2e9 * 0.4,
+				amount: expected_reward,
 			},
 		], 1)
 
@@ -1093,6 +1103,10 @@ describe('Various trades in perpetual', function () {
 	})
 
 	it('Bob harvests OSWAP rewards from staking SPACEX', async () => {
+		const expected_reward = 2e9 * 0.2
+		const rewards = await this.get_rewards(this.bobAddress, this.spacex_asset)
+		expect(rewards).to.deep.eq({ e1: expected_reward })
+
 		const { unit, error } = await this.bob.triggerAaWithData({
 			toAddress: this.staking_aa,
 			amount: 1e4,
@@ -1120,7 +1134,7 @@ describe('Various trades in perpetual', function () {
 			{
 				asset: this.oswap,
 				address: this.bobAddress,
-				amount: 2e9 * 0.2,
+				amount: expected_reward,
 			},
 		], 1)
 
@@ -1199,6 +1213,10 @@ describe('Various trades in perpetual', function () {
 
 
 	it('Alice harvests OSWAP rewards from staking asset0', async () => {
+		const expected_reward = 4e9 * 0.4
+		const rewards = await this.get_rewards(this.aliceAddress, this.asset0)
+		expect(rewards).to.deep.eq({ e1: expected_reward })
+
 		const { unit, error } = await this.alice.triggerAaWithData({
 			toAddress: this.staking_aa,
 			amount: 1e4,
@@ -1226,7 +1244,7 @@ describe('Various trades in perpetual', function () {
 			{
 				asset: this.oswap,
 				address: this.aliceAddress,
-				amount: 4e9 * 0.4,
+				amount: expected_reward,
 			},
 		], 1)
 
@@ -1240,6 +1258,10 @@ describe('Various trades in perpetual', function () {
 	})
 
 	it('Alice withdraws BTC and harvests OSWAP rewards from staking BTC', async () => {
+		const expected_reward = 1e9 * 0.4
+		const rewards = await this.get_rewards(this.aliceAddress, this.btc_asset)
+		expect(rewards).to.deep.eq({ e1: expected_reward })
+
 		const { unit, error } = await this.alice.triggerAaWithData({
 			toAddress: this.staking_aa,
 			amount: 1e4,
@@ -1267,7 +1289,7 @@ describe('Various trades in perpetual', function () {
 			{
 				asset: this.oswap,
 				address: this.aliceAddress,
-				amount: 1e9 * 0.4,
+				amount: expected_reward,
 			},
 			{
 				asset: this.btc_asset,

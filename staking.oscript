@@ -503,7 +503,6 @@ track votes as normalized VP:
 							if (!$last_group_num OR length($last_perp_vps) >= $max_perps_per_group + 1){
 								var['last_group_num'] += 1;
 								$group_num = $last_group_num + 1;
-								$perp.group_key = 'g'||$group_num;
 								$perp_vps = {total:0};
 							}
 							else {

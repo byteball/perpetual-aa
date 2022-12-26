@@ -1,7 +1,7 @@
 {
 	doc_url: "https://pyth.ooo/perpetual-factory.json",
 	init: `{
-		$base_aa = 'FOXSAO57LJ5LBQA6TWQF6SFMICY5QADO';
+		$base_aa = 'W56LBXTUF7P6ESERIIQCRFKIIN2DBBMZ';
 	}`,
 	messages: {
 		cases: [

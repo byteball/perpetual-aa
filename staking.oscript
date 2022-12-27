@@ -299,8 +299,8 @@ track votes as normalized VP:
 							// commit if have the majority or stayed unchallenged long enough
 							if (abs($new_total_vp) > $state.total_normalized_vp/2 OR timestamp > $wl_votes.flip_ts + $challenging_period){
 								$asset_key = var['reward_assets_'||$reward_asset];
+								$emissions = var['emissions'] OTHERWISE {};
 								if ($new_total_vp > 0){ // add to the whitelist (or re-add)
-									$emissions = var['emissions'] OTHERWISE {};
 									if (!$asset_key){ // create a new reward asset
 										// we'll have 2 keys per reward asset in $perp and $user_perp
 										require(length($emissions) < 15, "too many reward assets, remove something first");

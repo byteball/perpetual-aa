@@ -32,7 +32,7 @@
 				if (!$price_aa)
 					return;
 				$target_price = $price_aa#3.$get_target_price();
-				if (typeof($target_price) != 'number')
+				if (typeof($target_price) != 'number' OR $target_price < 0)
 					return;
 			}
 			
@@ -157,6 +157,7 @@
 				$full_fee_rate = $swap_fee_rate + $arb_profit_tax/($r - $new_r1);
 				require($full_fee_rate < 1, "fee would exceed 100%");
 				$new_r = ceil($get_new_r($new_s, $full_fee_rate));
+				require($new_r <= $r, "r would increase to "||$new_r);
 				$swap_fee = $swap_fee_rate * ($r - $new_r);
 				$state.a0 = $bAsset0
 					? ($state.a0 * $s*$s + ($new_r*$new_r - $r*$r)/$c/$c)/$new_s/$new_s
@@ -177,10 +178,12 @@
 				$new_s = floor($get_new_s($new_r, $full_fee_rate));
 				log('new_s = ', $new_s);
 				$delta_s = $new_s - $s;
+				require($delta_s >= 0, "s would decrease by "||$delta_s);
 				$state.a0 = $bAsset0
 					? ($state.a0 * $s*$s + ($new_r*$new_r - $r*$r)/$c/$c)/$new_s/$new_s
 					: $state.a0 + $full_fee_rate * ($new_r*$new_r - $r*$r)/$c/$c/$state.s0/$state.s0;
 			}
+			require($state.a0 > 0, "a0 would become "||$state.a0);
 
 			$state.reserve = $new_r;
 			if ($bAsset0){

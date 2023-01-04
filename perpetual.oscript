@@ -2,6 +2,8 @@
 	doc_url: "https://pyth.ooo/perpetual.json",
 	getters: `{
 
+		$trade_merge_period = 1; // seconds
+
 		$get_param = ($name, $default) => {
 			$value = var[$name];
 			exists($value) ? $value : (exists(params[$name]) ? params[$name] : $default)
@@ -131,9 +133,10 @@
 		};
 
 
-		$get_exchange_result_by_state = ($tokens, $delta_r, $asset, $asset_info, $state) => {
+		$get_exchange_result_by_state = ($tokens, $delta_r, $asset, $asset_info, $state, $trigger_initial_address) => {
 			require($tokens > 0 AND $delta_r == 0 OR $tokens == 0 AND $delta_r > 0, "invalid input");
 
+			$op = $tokens ? 'sell' : 'buy';
 			$bAsset0 = $state.asset0 == $asset;
 
 			$r = $state.reserve;
@@ -143,6 +146,13 @@
 			$p = $s ? $c*$c * $a * $s / $r : 0;
 			log('p = ', $p);
 
+			$key = 'last_'||$op;
+			$last_trade = $bAsset0 ? $state[$key] : $asset_info[$key];
+			$bMerge = (timestamp <= $last_trade.ts + $trade_merge_period AND $trigger_initial_address == $last_trade.address);
+			$recent_tax = $bMerge ? $last_trade.tax : 0;
+			$recent_delta_s = $bMerge ? $last_trade.delta_s : 0;
+			$initial_p = $bMerge ? ($tokens ? max($p, $last_trade.initial_p) : min($p, $last_trade.initial_p)) : $p;
+
 			$swap_fee_rate = $get_swap_fee();
 			$arb_profit_tax_rate = $get_arb_profit_tax();
 
@@ -150,10 +160,11 @@
 			$get_new_r = ($new_s, $fee_rate) => sqrt($r*$r + ($new_s*$new_s - $s*$s)*$c*$c*$a * (1 - $fee_rate));
 
 			if ($tokens) { // selling tokens
+				$delta_s = -$tokens;
 				$new_s = $s - $tokens;
 				$new_r1 = $get_new_r($new_s, $swap_fee_rate);
 				$new_p1 = $c*$c * $a * $new_s / $new_r1;
-				$arb_profit_tax = $arb_profit_tax_rate * ($new_p1 - $p) * ($new_s - $s) / 2;
+				$arb_profit_tax = $arb_profit_tax_rate * ($initial_p - $new_p1) * ($tokens - $recent_delta_s) / 2 - $recent_tax;
 				$full_fee_rate = $swap_fee_rate + $arb_profit_tax/($r - $new_r1);
 				require($full_fee_rate < 1, "fee would exceed 100%");
 				$new_r = ceil($get_new_r($new_s, $full_fee_rate));
@@ -171,7 +182,7 @@
 				log('new_s1 = ', $new_s1);
 				$new_p1 = $c*$c * $a * $new_s1 / $new_r;
 				log('new_p1 = ', $new_p1);
-				$arb_profit_tax = $arb_profit_tax_rate * ($new_p1 - $p) * ($new_s1 - $s) / 2;
+				$arb_profit_tax = $arb_profit_tax_rate * ($new_p1 - $initial_p) * ($new_s1 - $s + $recent_delta_s) / 2 - $recent_tax;
 
 				$full_fee_rate = $swap_fee_rate + $arb_profit_tax/$delta_r;
 				require($full_fee_rate < 1, "fee would exceed 100%");
@@ -207,10 +218,24 @@
 			else
 				$fee_percent = $total_fee / $delta_r * 100;
 
+			if ($bAsset0){
+				$state[$key].delta_s = ($bMerge ? $last_trade.delta_s : 0) + $delta_s;
+				$state[$key].initial_p = $initial_p;
+				$state[$key].tax = $arb_profit_tax;
+				$state[$key].ts = timestamp;
+				$state[$key].address = $trigger_initial_address;
+			}
+			else {
+				$asset_info[$key].delta_s = ($bMerge ? $last_trade.delta_s : 0) + $delta_s;
+				$asset_info[$key].initial_p = $initial_p;
+				$asset_info[$key].tax = $arb_profit_tax;
+				$asset_info[$key].ts = timestamp;
+				$asset_info[$key].address = $trigger_initial_address;
+			}
 
 			{
 				payout: $payout,
-				delta_s: $tokens ? -$tokens : $delta_s,
+				delta_s: $delta_s,
 				old_reserve: $r,
 				new_reserve: $new_r,
 				delta_reserve: $new_r - $r,
@@ -230,7 +255,7 @@
 				require($asset_info, "no such asset");
 				$adjust_prices($asset, $asset_info, $state);
 			}
-			$get_exchange_result_by_state($tokens, $delta_r, $asset, $asset_info, $state)
+			$get_exchange_result_by_state($tokens, $delta_r, $asset, $asset_info, $state, 'ADDRESS')
 		};
 
 
@@ -477,7 +502,7 @@
 
 					$reserve_asset_amount = $tokens ? 0 : trigger.output[[asset=$reserve_asset]] - $full_network_fee; // subtract a fee to compensate for network fees
 					
-					$res = $get_exchange_result_by_state($tokens, $reserve_asset_amount, $asset, $asset_info, $state);
+					$res = $get_exchange_result_by_state($tokens, $reserve_asset_amount, $asset, $asset_info, $state, trigger.initial_address);
 					
 					response['price'] = $res.new_price;
 					response['swap_fee'] = $res.swap_fee;

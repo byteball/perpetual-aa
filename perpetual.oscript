@@ -264,8 +264,6 @@
 	init: `{
 
 		$reserve_asset = params.reserve_asset;
-
-		$aa2aa_bytes = 2000;
 		
 		// reserve
 		$min_contribution = ($reserve_asset == 'base') ? 99999 : 0;
@@ -497,10 +495,7 @@
 						require(trigger.output[[asset=$reserve_asset]] <= $min_contribution, "don't send the reserve when redeeming tokens");
 					}
 					
-					$to_aa = $to != trigger.address AND is_aa($to);
-					$full_network_fee = $network_fee + ($reserve_asset == 'base' ? ($to_aa ? $aa2aa_bytes : 0) : 0);
-
-					$reserve_asset_amount = $tokens ? 0 : trigger.output[[asset=$reserve_asset]] - $full_network_fee; // subtract a fee to compensate for network fees
+					$reserve_asset_amount = $tokens ? 0 : trigger.output[[asset=$reserve_asset]] - $network_fee; // subtract a fee to compensate for network fees
 					
 					$res = $get_exchange_result_by_state($tokens, $reserve_asset_amount, $asset, $asset_info, $state, trigger.initial_address);
 					
@@ -515,6 +510,20 @@
 						bounce("payout would be only " || $res.payout);
 					if (trigger.data.max_fee_percent AND $res.fee_percent > trigger.data.max_fee_percent)
 						bounce("fee would be " || $res.fee_percent || '%');
+					
+					// further hops
+					$hops = trigger.data.hops;
+					$address = $hops[0].address OTHERWISE $to;
+					if ($hops){
+						$data_for_next_hop = $hops[0].data;
+						delete($hops, 0); // remove the head hop
+						if ($data_for_next_hop OR length($hops)){
+							$forwarded_data = $data_for_next_hop OTHERWISE {};
+							if (length($hops))
+								$forwarded_data.hops = $hops;
+						}
+					}
+
 				}`,
 				messages: [
 					{ // send newly minted tokens
@@ -523,7 +532,7 @@
 						payload: {
 							asset: `{$asset}`,
 							outputs: [
-								{address: "{$to}", amount: "{ $res.delta_s }"}
+								{address: "{$address}", amount: "{ $res.delta_s }"}
 							]
 						}
 					},
@@ -532,27 +541,14 @@
 						payload: {
 							asset: `{$reserve_asset}`,
 							outputs: [
-								{address: "{$to}", amount: "{$res.payout}", if: "{$res.payout}"},
-								{address: "{$to}", amount: "{$aa2aa_bytes}", if: "{ $reserve_asset == 'base' AND $to_aa}"},
+								{address: "{$address}", amount: "{$res.payout}", if: "{$res.payout}"},
 							]
 						}
 					},
-					{ // send some bytes to AAs
-						if: "{ $reserve_asset != 'base' AND $to_aa }",
-						app: 'payment',
-						payload: {
-							asset: 'base',
-							outputs: [
-								{address: "{$to}", amount: "{$aa2aa_bytes}"},
-							]
-						}
-					},
-					{ // if we are sending to an AA, make sure its response goes to our requestor
-						if: `{ $to_aa }`,
+					{
+						if: `{$forwarded_data}`,
 						app: 'data',
-						payload: {
-							to: `{trigger.address}`
-						}
+						payload: `{$forwarded_data}`
 					},
 					{
 						app: 'state',

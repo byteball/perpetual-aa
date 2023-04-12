@@ -163,8 +163,11 @@
 				$delta_s = -$tokens;
 				$new_s = $s - $tokens;
 				$new_r1 = $get_new_r($new_s, $swap_fee_rate);
-				$new_p1 = $c*$c * $a * $new_s / $new_r1;
+				$new_a1 = $bAsset0 ? ($a * $s*$s + ($new_r1*$new_r1 - $r*$r)/$c/$c)/$new_s/$new_s : $a;
+				$new_p1 = $c*$c * $new_a1 * $new_s / $new_r1;
+				require($new_p1 < $p, "price should go down when selling, got "||$p||" => "||$new_p1);
 				$arb_profit_tax = $arb_profit_tax_rate * ($initial_p - $new_p1) * ($tokens - $recent_delta_s) / 2 - $recent_tax;
+				require($arb_profit_tax >= 0, "negative arb profit tax "||$arb_profit_tax);
 				$full_fee_rate = $swap_fee_rate + $arb_profit_tax/($r - $new_r1);
 				require($full_fee_rate < 1, "fee would exceed 100%");
 				$new_r = ceil($get_new_r($new_s, $full_fee_rate));
@@ -179,10 +182,13 @@
 				$new_r = $r + $delta_r;
 				$swap_fee = $swap_fee_rate * $delta_r;
 				$new_s1 = $get_new_s($new_r, $swap_fee_rate);
-				log('new_s1 = ', $new_s1);
-				$new_p1 = $c*$c * $a * $new_s1 / $new_r;
-				log('new_p1 = ', $new_p1);
+				log('new_s1 = ', $new_s1, 'delta', $new_s1 - $s);
+				$new_a1 = $bAsset0 ? ($a * $s*$s + ($new_r*$new_r - $r*$r)/$c/$c)/$new_s1/$new_s1 : $a;
+				$new_p1 = $c*$c * $new_a1 * $new_s1 / $new_r;
+				log('new_p1 = ', $new_p1, 'delta', $new_p1 - $p);
+				require($new_p1 > $p, "price should go up when buying, got "||$p||" => "||$new_p1);
 				$arb_profit_tax = $arb_profit_tax_rate * ($new_p1 - $initial_p) * ($new_s1 - $s + $recent_delta_s) / 2 - $recent_tax;
+				require($arb_profit_tax >= 0, "negative arb profit tax "||$arb_profit_tax);
 
 				$full_fee_rate = $swap_fee_rate + $arb_profit_tax/$delta_r;
 				require($full_fee_rate < 1, "fee would exceed 100%");

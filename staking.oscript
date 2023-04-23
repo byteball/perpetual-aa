@@ -93,6 +93,9 @@ track votes as normalized VP:
 
 		$challenging_period = $get_challenging_period();
 
+		// scaled to the share of the staked balance
+		$get_majority_threshold = () => $state.total_normalized_vp/2 * $aa_state.s0/var['perp_asset_balance_a0'];
+
 	}`,
 	messages: {
 		cases: [
@@ -303,7 +306,7 @@ track votes as normalized VP:
 							var['wl_votes_'||$reward_asset] = $wl_votes;
 
 							// commit if have the majority or stayed unchallenged long enough
-							if (abs($new_total_vp) > $state.total_normalized_vp/2 OR timestamp > $wl_votes.flip_ts + $challenging_period){
+							if (abs($new_total_vp) > $get_majority_threshold() OR timestamp > $wl_votes.flip_ts + $challenging_period){
 								$asset_key = var['reward_assets_'||$reward_asset];
 								$emissions = var['emissions'] OTHERWISE {};
 								if ($new_total_vp > 0){ // add to the whitelist (or re-add)
@@ -438,7 +441,7 @@ track votes as normalized VP:
 							$current_value = var[$full_name];
 							!exists($current_value) OR $current_value != $leader.value
 						};
-						$bCommit = ($is_new_value() AND ($new_leader_vp > $state.total_normalized_vp/2 OR timestamp > $leader.flip_ts + $challenging_period AND $name != 'challenging_period'));
+						$bCommit = ($is_new_value() AND ($new_leader_vp > $get_majority_threshold() OR timestamp > $leader.flip_ts + $challenging_period AND $name != 'challenging_period'));
 						$bPost = $bCommit AND $name != 'challenging_period' AND !$bDontPostToPerp;
 					}
 				}`,

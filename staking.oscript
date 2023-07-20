@@ -38,8 +38,8 @@ track votes as normalized VP:
 
 
 		$get_vp = ($user_address) => {
-			$user = var['user_' || $user_address];
-			$user ? $user.normalized_vp * $get_decay_factor()^((timestamp - $common_ts)/$year) : 0
+			$user = var['user_' || $user_address || '_a0'];
+			$user ? $user.normalized_vp / $get_decay_factor()^((timestamp - $common_ts)/$year) : 0
 		};
 
 		$get_rewards = ($user_address, $perp_asset) => {

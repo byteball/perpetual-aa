@@ -42,7 +42,7 @@
 				if (
 					$asset_info.presale_amount
 					AND (
-						timestamp >= $asset_info.creation_ts + $get_presale_period() 
+						timestamp >= $asset_info.presale_finish_ts 
 						OR $asset_info.presale_amount > $get_token_share_threshold() * $state.reserve
 						// we can exceed max_tokens
 						OR $asset_info.preipo AND $asset_info.presale_amount / $target_price >= $asset_info.max_tokens
@@ -418,6 +418,7 @@
 									presale: true, 
 									presale_amount: 0, 
 									creation_ts: timestamp,
+									presale_finish_ts: timestamp + $get_presale_period(),
 								};
 								if ($name == 'add_price_aa')
 									$a_info.price_aa = trigger.data.price_aa;
@@ -447,7 +448,7 @@
 				if: `{ $state AND $asset AND trigger.data.presale AND trigger.output[[asset=$reserve_asset]] > $min_contribution }`,
 				init: `{
 					require($asset_info.presale, "already launched");
-				//	require($asset_info.creation_ts >= timestamp, "already launched");
+					require($asset_info.presale_finish_ts >= timestamp, "presale finished");
 				}`,
 				messages: [
 					{

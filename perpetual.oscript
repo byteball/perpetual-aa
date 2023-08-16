@@ -448,18 +448,42 @@
 
 			// accept initial contributions for presale assets
 			{
-				if: `{ $state AND $asset AND trigger.data.presale AND trigger.output[[asset=$reserve_asset]] > $min_contribution }`,
+				if: `{
+					if (!($state AND $asset AND trigger.data.presale))
+						return false;
+					$in_amount = trigger.output[[asset=$reserve_asset]];
+					$bAdd = $in_amount > $min_contribution;
+					$bWithdraw = $in_amount <= $min_contribution AND is_integer(trigger.data.withdraw_amount) AND trigger.data.withdraw_amount > 0;
+					$bAdd OR $bWithdraw
+				}`,
 				init: `{
 					require($asset_info.presale, "already launched");
 					require($asset_info.presale_finish_ts >= timestamp, "presale finished");
+					if ($bAdd)
+						$delta = $in_amount;
+					else { // withdraw
+						$contribution = var['contribution_'||trigger.address||'_'||$asset];
+						require(trigger.data.withdraw_amount <= $contribution, "you have only "||$contribution);
+						$delta = -trigger.data.withdraw_amount;
+					}
 				}`,
 				messages: [
+					{ // send the withdrawal
+						if: `{$bWithdraw}`,
+						app: 'payment',
+						payload: {
+							asset: `{$reserve_asset}`,
+							outputs: [
+								{address: "{$to}", amount: "{ trigger.data.withdraw_amount }"}
+							]
+						}
+					},
 					{
 						app: 'state',
 						state: `{
-							var['contribution_'||trigger.address||'_'||$asset] += trigger.output[[asset=$reserve_asset]];
-							$asset_info.presale_amount = $asset_info.presale_amount + trigger.output[[asset=$reserve_asset]];
-							if ($asset_info.preipo)
+							var['contribution_'||trigger.address||'_'||$asset] += $delta;
+							$asset_info.presale_amount = $asset_info.presale_amount + $delta;
+							if ($asset_info.preipo AND $bAdd)
 								$asset_info.last_auction_price = $asset_info.initial_auction_price / 2^((timestamp - $asset_info.creation_ts)/$get_auction_price_halving_period());
 							var['asset_'||$asset] = $asset_info;
 						}`

@@ -580,7 +580,7 @@ describe('Various trades in perpetual', function () {
 	})
 
 	it('Alice buys BTC-pegged asset in a presale', async () => {
-		const amount = 1e9
+		const amount = 1.1e9
 		const { unit, error } = await this.alice.sendMulti({
 			outputs_by_asset: {
 				[this.reserve_asset]: [{ address: this.perp_aa, amount: amount + this.network_fee_on_top }],
@@ -612,8 +612,47 @@ describe('Various trades in perpetual', function () {
 		await this.checkCurve()
 	})
 
+	it('Alice withdraws reserve from BTC-pegged asset in a presale', async () => {
+		const amount = 0.1e9
+		const { unit, error } = await this.alice.triggerAaWithData({
+			toAddress: this.perp_aa,
+			amount: 10000,
+			data: {
+				presale: 1,
+				withdraw_amount: amount,
+				asset: this.btc_asset,
+			}
+		})
+		expect(error).to.be.null
+		expect(unit).to.be.validUnit
 
-	it('Alice withdraws BTC-pegged asset from the presale', async () => {
+		const { response } = await this.network.getAaResponseToUnitOnNode(this.alice, unit)
+	//	console.log('logs', JSON.stringify(response.logs, null, 2))
+		console.log(response.response.error)
+	//	await this.network.witnessUntilStable(response.response_unit)
+		expect(response.response.error).to.be.undefined
+		expect(response.bounced).to.be.false
+		expect(response.response_unit).to.be.validUnit
+
+		const { vars } = await this.alice.readAAStateVars(this.perp_aa)
+		console.log('perp vars', vars)
+		this.state = vars.state
+
+		const { unitObj } = await this.alice.getUnitInfo({ unit: response.response_unit })
+		console.log(Utils.getExternalPayments(unitObj))
+		expect(Utils.getExternalPayments(unitObj)).to.deep.equalInAnyOrder([
+			{
+				asset: this.reserve_asset,
+				address: this.aliceAddress,
+				amount,
+			},
+		])
+
+		await this.checkCurve()
+	})
+
+
+	it('Alice claims BTC-pegged asset from the presale', async () => {
 		await this.timetravel('14d')
 		const reserve_price = await this.executeGetter(this.reserve_price_aa, 'get_reserve_price');
 		const new_issued_tokens = Math.floor(1e9 * reserve_price / 20000 / this.multiplier)

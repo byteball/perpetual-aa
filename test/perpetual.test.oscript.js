@@ -41,14 +41,24 @@ describe('Various trades in perpetual', function () {
 			.with.asset({ ousd: {} })
 			.with.asset({ oswap: {} }) // reward asset
 			.with.asset({ oswap2: {} }) // 2nd reward asset
+			.with.asset({ wbtc: {} }) // oswap asset
+
+			.with.agent({ lbc: path.join(__dirname, '../node_modules/oswap-v2-aa/linear-bonding-curve.oscript') })
+			.with.agent({ pool_lib: path.join(__dirname, '../node_modules/oswap-v2-aa/pool-lib.oscript') })
+			.with.agent({ pool_lib_by_price: path.join(__dirname, '../node_modules/oswap-v2-aa/pool-lib-by-price.oscript') })
+			.with.agent({ governance_base: path.join(__dirname, '../node_modules/oswap-v2-aa/governance.oscript') })
+			.with.agent({ v2Pool: path.join(__dirname, '../node_modules/oswap-v2-aa/pool.oscript') })
+			.with.agent({ v2OswapFactory: path.join(__dirname, '../node_modules/oswap-v2-aa/factory.oscript') })
+
+			.with.agent({ reserve_price_base: path.join(__dirname, '../reserve_price.oscript') })
 			.with.agent({ price_base: path.join(__dirname, '../price.oscript') })
 			.with.agent({ staking_lib: path.join(__dirname, '../staking-lib.oscript') })
 			.with.agent({ staking_base })
 			.with.agent({ perp_base })
 			.with.agent({ factory })
 			.with.wallet({ oracle: {base: 1e9} })
-			.with.wallet({ alice: {base: 100e9, ousd: 10000e9} })
-			.with.wallet({ bob: {base: 100e9, ousd: 10000e9} })
+			.with.wallet({ alice: {base: 100000e9, ousd: 10000e9, wbtc: 1000e8} })
+			.with.wallet({ bob: {base: 1000e9, ousd: 10000e9, wbtc: 10e8} })
 			.with.wallet({ osw: {base: 100e9, oswap: 10000e9, oswap2: 10000e9} })
 		//	.with.explorer()
 			.run()
@@ -57,6 +67,7 @@ describe('Various trades in perpetual', function () {
 		console.log('--- assets\n', this.network.asset)
 
 		this.ousd = this.network.asset.ousd
+		this.wbtc = this.network.asset.wbtc
 		this.oswap = this.network.asset.oswap
 		this.oswap2 = this.network.asset.oswap2
 
@@ -68,7 +79,7 @@ describe('Various trades in perpetual', function () {
 		this.bobAddress = await this.bob.getAddress()
 		this.osw = this.network.wallet.osw
 
-		this.multiplier = 1e-4
+		this.multiplier = 1e-8
 		const { address: btc_price_aa_address, error } = await this.alice.deployAgent({
 			base_aa: this.network.agent.price_base,
 			params: {
@@ -125,7 +136,7 @@ describe('Various trades in perpetual', function () {
 						sum += a * supply ** 2
 				}
 			const r = coef * Math.sqrt(sum)
-			expect(r).to.be.closeTo(reserve, 7)
+			expect(r).to.be.closeTo(reserve, 20)
 		}
 
 		this.checkVotes = (vars) => {
@@ -185,6 +196,7 @@ describe('Various trades in perpetual', function () {
 				app: 'data_feed',
 				payload: {
 					BTC_USD: 20000,
+					GBYTE_USD: 20,
 				}
 			}],
 		})
@@ -195,7 +207,111 @@ describe('Various trades in perpetual', function () {
 		const dfMessage = unitObj.messages.find(m => m.app === 'data_feed')
 		expect(dfMessage.payload).to.deep.equalInAnyOrder({
 			BTC_USD: 20000,
+			GBYTE_USD: 20,
 		})
+	})
+
+	it('Bob defines GBYTE-WBTC pool', async () => {
+		this.base_interest_rate = 0.3
+		this.swap_fee = 0.003
+		this.exit_fee = 0.005
+		this.leverage_profit_tax = 0.1
+		this.arb_profit_tax = 0.9
+		this.alpha = 0.5
+		this.beta = 1 - this.alpha
+		this.pool_leverage = 10
+		const { unit, error } = await this.bob.triggerAaWithData({
+			toAddress: this.network.agent.v2OswapFactory,
+			amount: 10000,
+			data: {
+				x_asset: 'base',
+				y_asset: this.wbtc,
+				swap_fee: this.swap_fee,
+				exit_fee: this.exit_fee,
+				leverage_profit_tax: this.leverage_profit_tax,
+				arb_profit_tax: this.arb_profit_tax,
+				base_interest_rate: this.base_interest_rate,
+				alpha: this.alpha,
+				pool_leverage: this.pool_leverage,
+			},
+		})
+		expect(error).to.be.null
+		expect(unit).to.be.validUnit
+
+		const { response } = await this.network.getAaResponseToUnitOnNode(this.bob, unit)
+		expect(response.response.error).to.be.undefined
+		expect(response.bounced).to.be.false
+		expect(response.response_unit).to.be.validUnit
+
+		this.oswap_aa = response.response.responseVars.address
+		expect(this.oswap_aa).to.be.validAddress
+
+		const { vars } = await this.bob.readAAStateVars(this.oswap_aa)
+		this.lp_asset = vars.lp_shares.asset
+		expect(this.lp_asset).to.be.validUnit
+	})
+	
+	it('Alice adds liquidity to GBYTE-WBTC pool', async () => {
+		const gbyte_amount = 10000e9
+		const wbtc_amount = 10e8
+		const { unit, error } = await this.alice.sendMulti({
+			outputs_by_asset: {
+				base: [{ address: this.oswap_aa, amount: gbyte_amount + 1e4 }],
+				[this.wbtc]: [{ address: this.oswap_aa, amount: wbtc_amount }],
+			},
+			spend_unconfirmed: 'all',
+		})
+		expect(error).to.be.null
+		expect(unit).to.be.validUnit
+
+		const { response } = await this.network.getAaResponseToUnit(unit)
+		console.log(response.response.error)
+		expect(response.response.error).to.be.undefined
+		expect(response.bounced).to.be.false
+		expect(response.response_unit).to.be.validUnit
+		expect(JSON.parse(response.response.responseVars.event).type).to.be.equal("add")
+	})
+
+	it('Bob adds liquidity to GBYTE-WBTC pool', async () => {
+		const gbyte_amount = 100e9
+		const wbtc_amount = 0.1e8
+		const { unit, error } = await this.bob.sendMulti({
+			outputs_by_asset: {
+				base: [{ address: this.oswap_aa, amount: gbyte_amount + 1e4 }],
+				[this.wbtc]: [{ address: this.oswap_aa, amount: wbtc_amount }],
+			},
+			spend_unconfirmed: 'all',
+		})
+		expect(error).to.be.null
+		expect(unit).to.be.validUnit
+
+		const { response } = await this.network.getAaResponseToUnit(unit)
+		console.log(response.response.error)
+		expect(response.response.error).to.be.undefined
+		expect(response.bounced).to.be.false
+		expect(response.response_unit).to.be.validUnit
+		expect(JSON.parse(response.response.responseVars.event).type).to.be.equal("add")
+	})
+
+	it('Alice defines reserve price AA', async () => {
+		const { address, unit, error } = await this.alice.deployAgent({
+			base_aa: this.network.agent.reserve_price_base,
+			params: {
+				oswap_aa: this.oswap_aa,
+				x_oracle: this.oracleAddress,
+				y_oracle: this.oracleAddress,
+				x_feed_name: 'GBYTE_USD',
+				y_feed_name: 'BTC_USD',
+				x_decimals: 9,
+				y_decimals: 8,
+			}
+		})
+		expect(error).to.be.null
+		this.reserve_price_aa = address
+		await this.network.witnessUntilStable(unit)
+		const reserve_price = await this.executeGetter(this.reserve_price_aa, 'get_reserve_price');
+		const { vars } = await this.bob.readAAStateVars(this.oswap_aa)
+		console.log('reserve price', reserve_price, 'total', reserve_price * vars.lp_shares.issued, 'shares', vars.lp_shares.issued)
 	})
 
 	it('Bob defines a new perp', async () => {
@@ -203,7 +319,8 @@ describe('Various trades in perpetual', function () {
 		expect(tf_error).to.be.null
 		
 	//	this.reserve_asset = 'base'
-		this.reserve_asset = this.ousd
+	//	this.reserve_asset = this.ousd
+		this.reserve_asset = this.lp_asset
 		this.swap_fee = 0.003
 		this.arb_profit_tax = 0.9
 		const { unit, error } = await this.bob.triggerAaWithData({
@@ -211,6 +328,7 @@ describe('Various trades in perpetual', function () {
 			amount: 10000,
 			data: {
 				reserve_asset: this.reserve_asset,
+				reserve_price_aa: this.reserve_price_aa,
 				swap_fee: this.swap_fee,
 				arb_profit_tax: this.arb_profit_tax,
 			},
@@ -247,7 +365,7 @@ describe('Various trades in perpetual', function () {
 
 
 	it('Alice buys asset0', async () => {
-		const amount = 100e9
+		const amount = 50e9
 		const res = await this.get_exchange_result(this.asset0, 0, amount)
 		console.log('res', res)
 		expect(res.arb_profit_tax).to.be.gte(0)
@@ -310,7 +428,8 @@ describe('Various trades in perpetual', function () {
 				payload: {
 					asset: this.asset0,
 				}
-			}]
+			}],
+			spend_unconfirmed: 'all',
 		})
 		expect(error).to.be.null
 		expect(unit).to.be.validUnit
@@ -496,7 +615,9 @@ describe('Various trades in perpetual', function () {
 
 	it('Alice withdraws BTC-pegged asset from the presale', async () => {
 		await this.timetravel('14d')
-		const new_issued_tokens = Math.floor(1e9 / 20000 / this.multiplier)
+		const reserve_price = await this.executeGetter(this.reserve_price_aa, 'get_reserve_price');
+		const new_issued_tokens = Math.floor(1e9 * reserve_price / 20000 / this.multiplier)
+		console.log('issued BTC tokens', new_issued_tokens)
 		const { unit, error } = await this.alice.triggerAaWithData({
 			toAddress: this.perp_aa,
 			amount: 10000,
@@ -961,7 +1082,7 @@ describe('Various trades in perpetual', function () {
 	})
 
 	it('Alice sells BTC', async () => {
-		const amount = 0.5e9
+		const amount = 1e7 // half
 		const res = await this.get_exchange_result(this.btc_asset, amount, 0)
 
 		const { unit, error } = await this.alice.sendMulti({
@@ -1161,7 +1282,7 @@ describe('Various trades in perpetual', function () {
 	})
 
 	it('Alice stakes BTC', async () => {
-		const amount = 0.5e9
+		const amount = 0.5e7
 		const { unit, error } = await this.alice.sendMulti({
 			outputs_by_asset: {
 				[this.btc_asset]: [{ address: this.staking_aa, amount: amount }],
@@ -1375,7 +1496,7 @@ describe('Various trades in perpetual', function () {
 	})
 
 	it('Alice stakes more BTC and OSWAP rewards get updated', async () => {
-		const amount = 0.1e9
+		const amount = 0.5e7
 		const { unit, error } = await this.alice.sendMulti({
 			outputs_by_asset: {
 				[this.btc_asset]: [{ address: this.staking_aa, amount: amount }],
@@ -1406,8 +1527,8 @@ describe('Various trades in perpetual', function () {
 		expect(staking_vars['asset_' + this.btc_asset].received_emissions).to.deep.eq({ e1: 4e9 * 0.4, e2: 2e9 * 0.4 })
 		expect(staking_vars['user_' + this.aliceAddress + '_a1'].last_perp_emissions).to.deep.eq({ e1: 4e9 * 0.4, e2: 2e9 * 0.4 })
 		expect(staking_vars['user_' + this.aliceAddress + '_a1'].rewards).to.deep.eq({ e1: 1e9 * 0.4, e2: 0 })
-		expect(staking_vars['user_' + this.aliceAddress + '_a1'].balance).to.eq(0.6e9)
-		expect(staking_vars['perp_asset_balance_a1']).to.eq(0.6e9)
+		expect(staking_vars['user_' + this.aliceAddress + '_a1'].balance).to.eq(1e7)
+		expect(staking_vars['perp_asset_balance_a1']).to.eq(1e7)
 		this.perp_vps_g1 = staking_vars.perp_vps_g1
 		this.checkVotes(staking_vars)
 	})
@@ -1496,7 +1617,7 @@ describe('Various trades in perpetual', function () {
 			{
 				asset: this.btc_asset,
 				address: this.aliceAddress,
-				amount: 0.6e9,
+				amount: 1e7,
 			},
 		], 1)
 

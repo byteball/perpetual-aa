@@ -16,6 +16,7 @@
 		$get_auction_price_halving_period = () => $get_param('auction_price_halving_period', 3 * 24 * 3600); // 3 days
 		$get_token_share_threshold = () => $get_param('token_share_threshold', 0.1); // 10%
 		$get_min_s0_share = () => $get_param('min_s0_share', 0.01); // 1%
+		$get_reserve_price_aa = () => $get_param('reserve_price_aa');
 
 		$pow2 = $x => $x*$x;
 		
@@ -33,7 +34,9 @@
 				$price_aa = $asset_info.price_aa;
 				if (!$price_aa)
 					return;
-				$target_price = $price_aa#3.$get_target_price();
+				// $target_price is in terms of the reserve currency.
+				// Both $get_target_price() and $get_reserve_price() return prices in USD (or some other common currency)
+				$target_price = $price_aa#3.$get_target_price() / $get_reserve_price_aa()#8.$get_reserve_price();
 				if (typeof($target_price) != 'number' OR $target_price < 0)
 					return;
 			}

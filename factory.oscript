@@ -1,7 +1,7 @@
 {
 	doc_url: "https://pyth.ooo/perpetual-factory.json",
 	init: `{
-		$base_aa = 'RI2C4MMLLDUEJOFCGS553SGD6QEWNIRD';
+		$base_aa = '5GIYQ6ULPWEWWATISAYCFG32T3A43B7J';
 	}`,
 	messages: {
 		cases: [
@@ -12,9 +12,11 @@
 					$reserve_asset = trigger.data.reserve_asset OTHERWISE 'base';
 					if ($reserve_asset != 'base')
 						require(asset[$reserve_asset].exists, "reserve_asset does not exist");
+					require(is_aa(trigger.data.reserve_price_aa), "invalid reserve_price_aa");
 					
 					$params = {
 						reserve_asset: $reserve_asset,
+						reserve_price_aa: trigger.data.reserve_price_aa,
 					};
 
 					$names = [

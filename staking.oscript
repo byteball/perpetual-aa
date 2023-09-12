@@ -405,10 +405,8 @@ track votes as normalized VP:
 							require(typeof($value) == 'number' AND $value >= 0, "invalid value");
 						else if ($name == 'adjustment_period' OR $name == 'presale_period' OR $name == 'auction_price_halving_period' OR $name == 'challenging_period')
 							require(is_integer($value) AND $value > 0, "invalid value");
-						else if ($name == 'add_price_aa' OR $name == 'add_preipo'){
+						else if ($name == 'add_price_aa' OR $name == 'add_preipo')
 							require($value == 'yes' OR $value == 'no', "invalid value");
-							$bDontPostToPerp = ($value == 'no');
-						}
 						else if ($name == 'change_price_aa'){
 							$price = $value#3.$get_target_price();
 							require(typeof($price) == 'number' OR !exists($price), "bad price"); // false price is also acceptable
@@ -442,6 +440,7 @@ track votes as normalized VP:
 							!exists($current_value) OR $current_value != $leader.value
 						};
 						$bCommit = ($is_new_value() AND ($new_leader_vp > $get_majority_threshold() OR timestamp > $leader.flip_ts + $challenging_period AND $name != 'challenging_period'));
+						$bDontPostToPerp = ($name == 'add_price_aa' OR $name == 'add_preipo') AND $leader.value == 'no';
 						$bPost = $bCommit AND $name != 'challenging_period' AND !$bDontPostToPerp;
 					}
 				}`,

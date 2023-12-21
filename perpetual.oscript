@@ -46,7 +46,7 @@
 					$asset_info.presale_amount
 					AND (
 						timestamp >= $asset_info.presale_finish_ts 
-						OR $asset_info.presale_amount > $get_token_share_threshold() * $state.reserve
+						OR $asset_info.presale_amount >= $get_token_share_threshold() * $state.reserve
 						// we can exceed max_tokens
 						OR $asset_info.preipo AND $asset_info.presale_amount / $target_price >= $asset_info.max_tokens
 					)

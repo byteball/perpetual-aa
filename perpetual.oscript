@@ -148,6 +148,7 @@
 			$a = $bAsset0 ? $state.a0 : $asset_info.a;
 			$p = $s ? $c*$c * $a * $s / $r : 0;
 			log('p = ', $p);
+			$bInitial = $bAsset0 AND ($r == 0);
 
 			$key = 'last_'||$op;
 			$last_trade = $bAsset0 ? $state[$key] : $asset_info[$key];
@@ -156,8 +157,8 @@
 			$recent_delta_s = $bMerge ? $last_trade.delta_s : 0;
 			$initial_p = $bMerge ? ($tokens ? max($p, $last_trade.initial_p) : min($p, $last_trade.initial_p)) : $p;
 
-			$swap_fee_rate = $get_swap_fee();
-			$arb_profit_tax_rate = $get_arb_profit_tax();
+			$swap_fee_rate = $bInitial ? 0 : $get_swap_fee();
+			$arb_profit_tax_rate = $bInitial ? 0 : $get_arb_profit_tax();
 
 			$get_new_s = ($new_r, $fee_rate) => sqrt($s*$s + ($new_r*$new_r - $r*$r)/$c/$c/$a * (1 - $fee_rate));
 			$get_new_r = ($new_s, $fee_rate) => sqrt($r*$r + ($new_s*$new_s - $s*$s)*$c*$c*$a * (1 - $fee_rate));

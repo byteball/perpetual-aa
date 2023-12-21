@@ -411,8 +411,10 @@ track votes as normalized VP:
 							$price = $value#3.$get_target_price();
 							require(typeof($price) == 'number' OR !exists($price), "bad price"); // false price is also acceptable
 						}
-						else if ($name == 'change_drift_rate')
+						else if ($name == 'change_drift_rate'){
 							require(typeof($value) == 'number', "bad drift rate"); // negative is also allowed
+							require(abs($value) <= (params.max_drift_rate OTHERWISE 0.5), "drift rate too large");
+						}
 						else
 							bounce("unknown variable");
 					}

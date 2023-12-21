@@ -1,7 +1,7 @@
 {
 	doc_url: "https://pyth.ooo/perpetual-factory.json",
 	init: `{
-		$base_aa = '4DXTMR263ATYBJ2PORDDPALXVCXVVVVN';
+		$base_aa = 'F6FAOHRX2S5GX7ODEXDX4KV5IUCGZ445';
 	}`,
 	messages: {
 		cases: [
@@ -27,8 +27,9 @@
 						'auction_price_halving_period',
 						'token_share_threshold',
 						'min_s0_share',
+						'max_drift_rate',
 					];
-					foreach($names, 7, $name => {
+					foreach($names, 8, $name => {
 						$value = trigger.data[$name];
 						if (exists($value)) {
 							require(typeof($value) == 'number' AND $value >= 0, $name||" must be a nonnegative number");

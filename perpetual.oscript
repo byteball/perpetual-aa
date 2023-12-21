@@ -295,7 +295,7 @@
 		$to = trigger.data.to OTHERWISE trigger.address;
 
 
-		$staking_base_aa = 'IHD6VTC6VXYDSSS5CVZCEPNXMSA4I52M';
+		$staking_base_aa = 'DNJ7P7TRVRIHWTUYUQG4UZTAXBOVMA46';
 
 	}`,
 	messages: {
@@ -314,6 +314,8 @@
 						$params.min_term = params.min_term;
 					if (params.decay_factor)
 						$params.decay_factor = params.decay_factor;
+					if (params.max_drift_rate)
+						$params.max_drift_rate = params.max_drift_rate;
 					$staking_aa = [
 						'autonomous agent',
 						{
@@ -375,8 +377,11 @@
 						require($value == 'yes', "can't remove asset");
 						require(trigger.data.price_aa, "no price_aa");
 					}
-					else if ($name == 'change_price_aa' OR $name == 'change_drift_rate')
+					else if ($name == 'change_price_aa' OR $name == 'change_drift_rate'){
 						require($asset, "no asset");
+						if ($name == 'change_price_aa' AND $asset_info.price_aa)
+							bounce("only preipo can set a price AA");
+					}
 					else if ($name == 'add_preipo'){
 						require($value == 'yes', "can't remove preipo");
 						require(trigger.data.symbol, "no symbol");

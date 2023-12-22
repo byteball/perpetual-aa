@@ -93,6 +93,7 @@
 				if ($relative_price_drift < 1){
 					$asset_info.a = $asset_info.a * (1 - $relative_price_drift);
 					$state.a0 = $state.a0 + $pow2($s/$s0) * $asset_info.a * $relative_price_drift;
+					require($state.a0 > 0, "a0 would become negative");
 				}
 			}
 			
@@ -295,7 +296,7 @@
 		$to = trigger.data.to OTHERWISE trigger.address;
 
 
-		$staking_base_aa = 'DNJ7P7TRVRIHWTUYUQG4UZTAXBOVMA46';
+		$staking_base_aa = 'MOPH5OSLKPAXMJQJPC6PKZCCFYNADNPG';
 
 	}`,
 	messages: {

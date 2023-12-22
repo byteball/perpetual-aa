@@ -2015,6 +2015,7 @@ describe('Various trades in perpetual', function () {
 			}
 		})
 		expect(deploy_error).to.be.null
+		this.spacex_price_aa_address = spacex_price_aa_address
 
 		const { unit, error } = await this.alice.triggerAaWithData({
 			toAddress: this.staking_aa,
@@ -2051,6 +2052,26 @@ describe('Various trades in perpetual', function () {
 
 		await this.checkCurve()
 		this.checkVotes(staking_vars)
+	})
+	
+	it('Alice votes for setting of price AA for BTC asset and fails', async () => {
+
+		const { unit, error } = await this.alice.triggerAaWithData({
+			toAddress: this.staking_aa,
+			amount: 10000,
+			data: {
+				vote_value: 1,
+				name: 'change_price_aa',
+				asset: this.btc_asset,
+				value: this.spacex_price_aa_address,
+			}
+		})
+		expect(error).to.be.null
+		expect(unit).to.be.validUnit
+
+		const { response } = await this.network.getAaResponseToUnitOnNode(this.alice, unit)
+		expect(response.response.error).to.be.eq(`one of secondary AAs bounced with error: ${this.perp_aa}: only preipo can set a price AA`)
+		expect(response.bounced).to.be.true
 	})
 	
 	after(async () => {

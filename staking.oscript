@@ -381,6 +381,7 @@ track votes as normalized VP:
 						require(typeof($price_aa#3.$get_target_price()) == 'number', "bad price");
 						$full_name = $name||$price_aa;
 					}
+					// change_price_aa can be always voted for but can be committed only for preipo assets to avoid malicious governance setting all prices to 0. Checking for the existence of price_aa here would be too expensive.
 					else if ($name == 'change_price_aa' OR $name == 'change_drift_rate'){
 						$a = trigger.data.asset;
 						require(var[$aa]['asset_'||$a], "not a valid asset");

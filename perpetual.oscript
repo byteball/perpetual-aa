@@ -124,10 +124,12 @@
 		$get_price = ($asset, $bWithPriceAdjustment) => {
 			$state = var['state'];
 			$bAsset0 = $state.asset0 == $asset;
-			$asset_info = var['asset_'||$asset];
-			require($asset_info, "no such asset");
-			if ($bWithPriceAdjustment)
-				$adjust_prices($asset, $asset_info, $state);
+			if (!$bAsset0) {
+				$asset_info = var['asset_'||$asset];
+				require($asset_info, "no such asset");
+				if ($bWithPriceAdjustment)
+					$adjust_prices($asset, $asset_info, $state);
+			}
 			$r = $state.reserve;
 			$c = $state.coef;
 			$s = $bAsset0 ? $state.s0 : $asset_info.supply;
@@ -296,7 +298,7 @@
 		$to = trigger.data.to OTHERWISE trigger.address;
 
 
-		$staking_base_aa = 'NAU7JZRNNEIF4F22ZUUJB4TWP3ZKVB5C';
+		$staking_base_aa = 'ISG2A2TKFDTJ34X67RB6KLLMFB5GRFCY';
 
 	}`,
 	messages: {

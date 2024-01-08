@@ -108,9 +108,10 @@ track votes as normalized VP:
 				init: `{
 					if (trigger.data.deposit) {
 						$bDeposit = true;
-						$perp_asset = trigger.output[[asset!='base']].asset;
+						$received_asset = trigger.output[[asset!='base']].asset;
+						$perp_asset = $received_asset == 'none' AND trigger.data.perp_asset ? trigger.data.perp_asset : $received_asset;
 						require($perp_asset != 'ambiguous' AND $perp_asset != 'none', "invalid perp asset");
-						$deposit_amount = trigger.output[[asset!=base]];
+						$deposit_amount = trigger.output[[asset=$perp_asset]];
 						$delta_balance = $deposit_amount;
 					}
 					else if (trigger.data.perp_asset) {

@@ -654,6 +654,7 @@ describe('Various trades in perpetual', function () {
 
 	it('Alice claims BTC-pegged asset from the presale', async () => {
 		await this.timetravel('14d')
+		const initial_asset0_price = await this.get_price(this.asset0)
 		const reserve_price = await this.executeGetter(this.reserve_price_aa, 'get_reserve_price');
 		const new_issued_tokens = Math.floor(1e9 * reserve_price / 20000 / this.multiplier)
 		console.log('issued BTC tokens', new_issued_tokens)
@@ -689,6 +690,9 @@ describe('Various trades in perpetual', function () {
 		const { vars } = await this.alice.readAAStateVars(this.perp_aa)
 		console.log('perp vars', vars)
 		this.state = vars.state
+
+		const final_asset0_price = await this.get_price(this.asset0)
+		expect(final_asset0_price).to.equalWithPrecision(initial_asset0_price, 6)
 
 		await this.checkCurve()
 	})
@@ -977,6 +981,10 @@ describe('Various trades in perpetual', function () {
 
 	it('Alice withdraws SPACEX-pegged asset from the presale', async () => {
 		await this.timetravel('8d')
+
+		const initial_asset0_price = await this.get_price(this.asset0)
+		const initial_btc_price = await this.get_price(this.btc_asset)
+		
 		const new_issued_tokens = Math.floor(1e9 / 2.5)
 		const { unit, error } = await this.alice.triggerAaWithData({
 			toAddress: this.perp_aa,
@@ -1010,6 +1018,11 @@ describe('Various trades in perpetual', function () {
 		const { vars } = await this.alice.readAAStateVars(this.perp_aa)
 		console.log('perp vars', vars)
 		this.state = vars.state
+
+		const final_asset0_price = await this.get_price(this.asset0)
+		const final_btc_price = await this.get_price(this.btc_asset)
+		expect(final_asset0_price).to.equalWithPrecision(initial_asset0_price, 6)
+		expect(final_btc_price).to.equalWithPrecision(initial_btc_price, 6)
 
 		await this.checkCurve()
 	})

@@ -19,7 +19,7 @@ track votes as normalized VP:
 	doc_url: "https://pyth.ooo/staking.json",
 	getters: `{
 
-		$lib_aa = '7IJECM2B473WUKKVGKSNFVBPBR5FM3UB';
+		$lib_aa = 'EY4RFQ7QJAVHGOEQDSCODJYSSQER75DY';
 		$common_ts = 1657843200; // Fri Jul 15 2022 00:00:00 GMT+0000
 		$year = 31104000; // 360 * 24 * 3600;
 		$max_perps_per_group = 30;
@@ -44,7 +44,7 @@ track votes as normalized VP:
 
 		$get_rewards = ($user_address, $perp_asset) => {
 			$state = var['state'];
-			$emissions = var['emissions'];
+			$emissions = var['emissions'] OTHERWISE {};
 			
 			$aa_state = var[params.aa]['state'];
 			$asset0 = $aa_state.asset0;
@@ -56,7 +56,7 @@ track votes as normalized VP:
 			$user_perp_key = 'user_' || $user_address || '_' || $perp.asset_key;
 			$user_perp = var[$user_perp_key] OTHERWISE {balance: 0, last_perp_emissions: {}, rewards: {}};
 			$total_perp_balance = var['perp_asset_balance_' || $perp.asset_key];
-			($lib_aa||'')#1.$distribute_emissions($state, $perp, $user_perp, $perp_vps, $total_perp_balance, $emissions, $bAsset0);
+			($lib_aa||'')#1.$distribute_emissions($state, $perp, $user_perp, $perp_vps, $total_perp_balance, $emissions, $bAsset0, $aa_state);
 			$user_perp.rewards // keyed by reward_asset_key
 		};
 
@@ -74,7 +74,7 @@ track votes as normalized VP:
 		$aa_state = var[$aa]['state'];
 		$asset0 = $aa_state.asset0;
 		
-		$names = ['swap_fee', 'arb_profit_tax', 'min_s0_share', 'adjustment_period', 'token_share_threshold', 'presale_period', 'auction_price_halving_period', 'add_price_aa', 'add_preipo', 'change_price_aa', 'change_drift_rate', 'challenging_period'];
+		$names = ['swap_fee', 'arb_profit_tax', 'stakers_fee_share', 'min_s0_share', 'adjustment_period', 'token_share_threshold', 'presale_period', 'auction_price_halving_period', 'add_price_aa', 'add_preipo', 'change_price_aa', 'change_drift_rate', 'challenging_period'];
 		
 		$is_allowed_name = $name => {
 			length(filter($names, 20, $n => $n == $name)) == 1
@@ -119,9 +119,10 @@ track votes as normalized VP:
 						if (trigger.data.withdraw)
 							$bWithdraw = true;
 						$reward_asset = trigger.data.reward_asset;
-						if ($reward_asset) {
+						if ($reward_asset OR trigger.data.withdraw_staker_fees) {
 							$bWithdrawReward = true;
-							$reward_asset_key = var['reward_assets_'||$reward_asset];
+							$bWithdrawStakerFees = trigger.data.withdraw_staker_fees AND $asset0 == $perp_asset;
+							$reward_asset_key = $bWithdrawStakerFees ? 'r' : var['reward_assets_'||$reward_asset];
 							require($reward_asset_key, "reward asset not known");
 						}
 					}
@@ -173,7 +174,7 @@ track votes as normalized VP:
 					}
 					$perp_vps = var['perp_vps_'||$perp.group_key] OTHERWISE {};
 					$total_perp_balance = var['perp_asset_balance_' || $perp.asset_key];
-					$lib#1.$distribute_emissions($state, $perp, $user_perp, $perp_vps, $total_perp_balance, $emissions, $bAsset0);
+					$lib#1.$distribute_emissions($state, $perp, $user_perp, $perp_vps, $total_perp_balance, $emissions, $bAsset0, $aa_state);
 				}`,
 				messages: [
 					{
@@ -185,13 +186,31 @@ track votes as normalized VP:
 						}
 					},
 					{ // send the accumulated reward
-						if: `{$bWithdrawReward}`,
+						if: `{$bWithdrawReward AND !$bWithdrawStakerFees}`,
 						app: 'payment',
 						payload: {
 							asset: `{$reward_asset}`,
 							outputs: [
 								{address: "{$to}", amount: "{ floor($user_perp.rewards[$reward_asset_key]) }"}  // fractional part is lost
 							]
+						}
+					},
+					{ // send the accumulated staker fees
+						if: `{$bWithdrawStakerFees}`,
+						app: 'payment',
+						payload: {
+							outputs: [
+								{address: "{$aa}", amount: 2000}
+							]
+						}
+					},
+					{ // send the accumulated staker fees
+						if: `{$bWithdrawStakerFees}`,
+						app: 'data',
+						payload: {
+							withdraw_staker_fees: 1,
+							address: `{$to}`,
+							amount: `{floor($user_perp.rewards[$reward_asset_key])}`,
 						}
 					},
 					{
@@ -403,6 +422,8 @@ track votes as normalized VP:
 					if (exists($value)){
 						if ($name == 'swap_fee' OR $name == 'min_s0_share')
 							require(typeof($value) == 'number' AND $value >= 0 AND $value < 1, "invalid value");
+						if ($name == 'stakers_fee_share')
+							require(typeof($value) == 'number' AND $value >= 0 AND $value <= 1, "invalid value");
 						else if ($name == 'arb_profit_tax' OR $name == 'token_share_threshold')
 							require(typeof($value) == 'number' AND $value >= 0, "invalid value");
 						else if ($name == 'adjustment_period' OR $name == 'presale_period' OR $name == 'auction_price_halving_period' OR $name == 'challenging_period')

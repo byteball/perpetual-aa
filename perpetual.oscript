@@ -16,6 +16,7 @@
 		$get_auction_price_halving_period = () => $get_param('auction_price_halving_period', 3 * 24 * 3600); // 3 days
 		$get_token_share_threshold = () => $get_param('token_share_threshold', 0.1); // 10%
 		$get_min_s0_share = () => $get_param('min_s0_share', 0.01); // 1%
+		$get_stakers_fee_share = () => $get_param('stakers_fee_share', 0.5); // 50%
 		$get_reserve_price_aa = () => $get_param('reserve_price_aa');
 
 		$pow2 = $x => $x*$x;
@@ -147,10 +148,11 @@
 
 			$r = $state.reserve;
 			$c = $state.coef;
+			$a0 = $state.a0;
 			$s = $bAsset0 ? $state.s0 : $asset_info.supply;
 			$a = $bAsset0 ? $state.a0 : $asset_info.a;
 			$p = $s ? $c*$c * $a * $s / $r : 0;
-			log('p = ', $p);
+		//	log('p = ', $p);
 			$bInitial = $bAsset0 AND ($r == 0);
 
 			$key = 'last_'||$op;
@@ -162,6 +164,8 @@
 
 			$swap_fee_rate = $bInitial ? 0 : $get_swap_fee();
 			$arb_profit_tax_rate = $bInitial ? 0 : $get_arb_profit_tax();
+			$stakers_fee_share = $get_stakers_fee_share();
+			$a0_fee_share = 1 - $stakers_fee_share;
 
 			$get_new_s = ($new_r, $fee_rate) => sqrt($s*$s + ($new_r*$new_r - $r*$r)/$c/$c/$a * (1 - $fee_rate));
 			$get_new_r = ($new_s, $fee_rate) => sqrt($r*$r + ($new_s*$new_s - $s*$s)*$c*$c*$a * (1 - $fee_rate));
@@ -172,64 +176,63 @@
 				$new_r1 = $get_new_r($new_s, $swap_fee_rate);
 				$new_a1 = $bAsset0 ? ($a * $s*$s + ($new_r1*$new_r1 - $r*$r)/$c/$c)/$new_s/$new_s : $a;
 				$new_p1 = $c*$c * $new_a1 * $new_s / $new_r1;
-				require($new_p1 < $p, "price should go down when selling, got "||$p||" => "||$new_p1);
-				$arb_profit_tax = $arb_profit_tax_rate * ($initial_p - $new_p1) * ($tokens - $recent_delta_s) / 2 - $recent_tax;
+				require($new_p1 < $p OR abs($new_p1 - $p)/$p < $swap_fee_rate, "price should go down when selling, got "||$p||" => "||$new_p1);
+				$arb_profit_tax = $arb_profit_tax_rate * abs($initial_p - $new_p1) * ($tokens - $recent_delta_s) / 2 - $recent_tax;
 				require($arb_profit_tax >= 0, "negative arb profit tax "||$arb_profit_tax);
 				$full_fee_rate = $swap_fee_rate + $arb_profit_tax/($r - $new_r1);
 				require($full_fee_rate < 1, "fee would exceed 100%");
-				$new_r = ceil($get_new_r($new_s, $full_fee_rate));
+				$new_r_gross = ceil($get_new_r($new_s, $full_fee_rate));
+				require($new_r_gross <= $r, "r_gross would increase to "||$new_r_gross);
+				$new_r = ceil($get_new_r($new_s, $full_fee_rate * $a0_fee_share));
 				require($new_r <= $r, "r would increase to "||$new_r);
-				$swap_fee = $swap_fee_rate * ($r - $new_r);
-				$state.a0 = $bAsset0
-					? ($state.a0 * $s*$s + ($new_r*$new_r - $r*$r)/$c/$c)/$new_s/$new_s
-					: $state.a0 + $full_fee_rate * $a * ($s*$s - $new_s*$new_s) / $state.s0 / $state.s0;
+				$staker_fee = $new_r_gross - $new_r;
+				require($staker_fee >= 0, "negative staker fee "||$staker_fee);
+				$payout = $r - $new_r_gross;
+				$swap_fee = $swap_fee_rate * $payout;
+				$total_fee = $swap_fee + $arb_profit_tax;
 			//	$new_r = $net_new_r + $swap_fee;
 			}
 			else { // buying tokens
-				$new_r = $r + $delta_r;
+				$new_r_gross = $r + $delta_r;
 				$swap_fee = $swap_fee_rate * $delta_r;
-				$new_s1 = $get_new_s($new_r, $swap_fee_rate);
-				log('new_s1 = ', $new_s1, 'delta', $new_s1 - $s);
-				$new_a1 = $bAsset0 ? ($a * $s*$s + ($new_r*$new_r - $r*$r)/$c/$c)/$new_s1/$new_s1 : $a;
-				$new_p1 = $c*$c * $new_a1 * $new_s1 / $new_r;
-				log('new_p1 = ', $new_p1, 'delta', $new_p1 - $p);
+				$new_s1 = $get_new_s($new_r_gross, $swap_fee_rate);
+			//	log('new_s1 = ', $new_s1, 'delta', $new_s1 - $s);
+				$new_a1 = $bAsset0 ? ($a * $s*$s + ($new_r_gross*$new_r_gross - $r*$r)/$c/$c)/$new_s1/$new_s1 : $a;
+				$new_p1 = $c*$c * $new_a1 * $new_s1 / $new_r_gross;
+			//	log('new_p1 = ', $new_p1, 'delta', $new_p1 - $p);
 				require($new_p1 > $p, "price should go up when buying, got "||$p||" => "||$new_p1);
 				$arb_profit_tax = $arb_profit_tax_rate * ($new_p1 - $initial_p) * ($new_s1 - $s + $recent_delta_s) / 2 - $recent_tax;
 				require($arb_profit_tax >= 0, "negative arb profit tax "||$arb_profit_tax);
 
+				$total_fee = $swap_fee + $arb_profit_tax;
+				$staker_fee = floor($total_fee * $stakers_fee_share);
 				$full_fee_rate = $swap_fee_rate + $arb_profit_tax/$delta_r;
 				require($full_fee_rate < 1, "fee would exceed 100%");
-				$new_s = floor($get_new_s($new_r, $full_fee_rate));
-				log('new_s = ', $new_s);
+				$new_r = $new_r_gross - $staker_fee;
+				$new_s = floor($get_new_s($new_r, $full_fee_rate * $a0_fee_share)); // rounding is like an additional fee
+			//	log('new_s = ', $new_s);
 				$delta_s = $new_s - $s;
 				require($delta_s >= 0, "s would decrease by "||$delta_s);
-				$state.a0 = $bAsset0
-					? ($state.a0 * $s*$s + ($new_r*$new_r - $r*$r)/$c/$c)/$new_s/$new_s
-					: $state.a0 + $full_fee_rate * ($new_r*$new_r - $r*$r)/$c/$c/$state.s0/$state.s0;
 			}
-			require($state.a0 > 0, "a0 would become "||$state.a0);
+			$state.a0 = $bAsset0
+				? ($state.a0 * $s*$s + ($new_r*$new_r - $r*$r)/$c/$c)/$new_s/$new_s
+				: $a0 + (($new_r*$new_r - $r*$r)/$c/$c - $a * ($new_s*$new_s - $s*$s))/$state.s0/$state.s0;
+			require($state.a0 >= $a0, "a0 should grow "||$a0||" => "||$state.a0);
 
 			$state.reserve = $new_r;
-			if ($bAsset0){
-				require($state.a0 >= $a, "a0 should grow");
+			if ($bAsset0)
 				$state.s0 = $new_s;
-			}
 			else
 				$asset_info.supply = $new_s;
 			
 			$new_p = $c*$c * $a * $new_s / $new_r; // fix
-			log('new_p = ', $new_p);
+		//	log('new_p = ', $new_p);
 			
 		//	if ($tokens)
 		//		$arb_profit_tax = $arb_profit_tax_rate * abs(($new_p - $p) * ($new_s - $s) / 2);
-			$total_fee = $swap_fee + $arb_profit_tax;
 
-			if ($tokens){
-				$payout = $r - $new_r;
-				$fee_percent = $total_fee / ($r - $new_r) * 100;
-			}
-			else
-				$fee_percent = $total_fee / $delta_r * 100;
+			$fee_percent = $total_fee / ($tokens ? $payout : $delta_r) * 100;
+			$state.total_staker_fees = $state.total_staker_fees + $staker_fee;
 
 			if ($bAsset0){
 				$state[$key].delta_s = ($bMerge ? $last_trade.delta_s : 0) + $delta_s;
@@ -298,7 +301,7 @@
 		$to = trigger.data.to OTHERWISE trigger.address;
 
 
-		$staking_base_aa = 'ISG2A2TKFDTJ34X67RB6KLLMFB5GRFCY';
+		$staking_base_aa = 'HPJQ6ZCB2T3JTIVAMDM5QESZWNJNJERO';
 
 	}`,
 	messages: {
@@ -362,7 +365,7 @@
 						app: 'state',
 						state: `{
 							var['staking_aa'] = $staking_aa_address;
-							var['state'] = {asset0: response_unit, a0: 1, s0: 0, reserve: 0, coef: 1};
+							var['state'] = {asset0: response_unit, a0: 1, s0: 0, reserve: 0, coef: 1, total_staker_fees: 0};
 							response['asset'] = response_unit;
 						}`
 					}
@@ -452,6 +455,22 @@
 								var[$name] = $value;
 						}`
 					}
+				]
+			},
+
+			// withdraw staker fees
+			{
+				if: `{trigger.data.withdraw_staker_fees AND trigger.address == var['staking_aa']}`,
+				messages: [
+					{ // send the accumulated reward
+						app: 'payment',
+						payload: {
+							asset: `{$reserve_asset}`,
+							outputs: [
+								{address: "{trigger.data.address}", amount: "{ trigger.data.amount }"},
+							]
+						}
+					},
 				]
 			},
 
@@ -557,6 +576,7 @@
 					// further hops
 					$hops = trigger.data.hops;
 					$address = $hops[0].address OTHERWISE $to;
+					require($address != var['staking_aa'], "sending to staking AA not allowed"); // not necessary now
 					if ($hops){
 						$data_for_next_hop = $hops[0].data;
 						delete($hops, 0); // remove the head hop

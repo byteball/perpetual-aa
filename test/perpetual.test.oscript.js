@@ -50,7 +50,7 @@ describe('Various trades in perpetual', function () {
 			.with.agent({ v2Pool: path.join(__dirname, '../node_modules/oswap-v2-aa/pool.oscript') })
 			.with.agent({ v2OswapFactory: path.join(__dirname, '../node_modules/oswap-v2-aa/factory.oscript') })
 
-			.with.agent({ reserve_price_base: path.join(__dirname, '../reserve_price.oscript') })
+			.with.agent({ reserve_price_base: path.join(__dirname, '../oswap_reserve_price.oscript') })
 			.with.agent({ price_base: path.join(__dirname, '../price.oscript') })
 			.with.agent({ staking_lib: path.join(__dirname, '../staking-lib.oscript') })
 			.with.agent({ staking_base })

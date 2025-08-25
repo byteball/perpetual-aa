@@ -11,10 +11,10 @@
     "node": ">=8"
   },
   "dependencies": {
+    "aa-testkit": "git+https://github.com/valyakin/aa-testkit.git",
     "chai": "^4.2.0",
     "chai-deep-closeto": "^0.1.1",
     "mocha": "^6.2.0",
-    "aa-testkit": "git+https://github.com/valyakin/aa-testkit.git",
     "oswap-v2-aa": "git+https://github.com/byteball/oswap-v2-aa.git"
   },
   "devDependencies": {

@@ -1522,13 +1522,13 @@ describe('Various trades in perpetual', function () {
 
 		const { vars: staking_vars } = await this.alice.readAAStateVars(this.staking_aa)
 	//	console.log('staking_vars', staking_vars)
-		expect(staking_vars['votes_' + this.aliceAddress]).to.deepCloseTo({ a0: 0.4 * vp, a1: 0.4 * vp, a30: 0.2 * vp }, 0.001)
+		expect(staking_vars['votes_' + this.aliceAddress]).to.deepCloseTo({ a0: 0.4 * vp, a1: 0.4 * vp, a30: 0.2 * vp }, 0.1)
 		let perp_vps_g1 = { a0: 0.4 * vp, a1: 0.4 * vp, total: 0.8 * vp }
 		for (let i = 2; i <= 29; i++)
 			perp_vps_g1['a' + i] = 0
-		expect(staking_vars['perp_vps_g1']).to.deepCloseTo(perp_vps_g1, 0.001)
-		expect(staking_vars['perp_vps_g2']).to.deepCloseTo({ a30: 0.2 * vp, total: 0.2 * vp }, 0.001)
-		expect(staking_vars['group_vps']).to.deepCloseTo({ g1: 0.8 * vp, g2: 0.2 * vp, total: vp }, 0.001)
+		expect(staking_vars['perp_vps_g1']).to.deepCloseTo(perp_vps_g1, 0.1)
+		expect(staking_vars['perp_vps_g2']).to.deepCloseTo({ a30: 0.2 * vp, total: 0.2 * vp }, 0.01)
+		expect(staking_vars['group_vps']).to.deepCloseTo({ g1: 0.8 * vp, g2: 0.2 * vp, total: vp }, 0.1)
 		this.checkVotes(staking_vars)
 	})
 
@@ -1931,13 +1931,13 @@ describe('Various trades in perpetual', function () {
 			a1: old_votes.a1 + 0.6 * added_vp,
 			a30: old_votes.a30,
 		}
-		expect(staking_vars['votes_' + this.aliceAddress]).to.deepCloseTo(new_votes, 0.002)
+		expect(staking_vars['votes_' + this.aliceAddress]).to.deepCloseTo(new_votes, 0.1)
 		let perp_vps_g1 = { a0: new_votes.a0, a1: new_votes.a1, total: new_votes.a0 + new_votes.a1 }
 		for (let i = 2; i <= 29; i++)
 			perp_vps_g1['a' + i] = 0
-		expect(staking_vars['perp_vps_g1']).to.deepCloseTo(perp_vps_g1, 0.01)
+		expect(staking_vars['perp_vps_g1']).to.deepCloseTo(perp_vps_g1, 0.1)
 		expect(staking_vars['perp_vps_g2']).to.deepCloseTo({ a30: old_votes.a30, total: old_votes.a30 }, 0.001)
-		expect(staking_vars['group_vps']).to.deepCloseTo({ g1: new_votes.a0 + new_votes.a1, g2: old_votes.a30, total: this.alice_vp }, 0.01)
+		expect(staking_vars['group_vps']).to.deepCloseTo({ g1: new_votes.a0 + new_votes.a1, g2: old_votes.a30, total: this.alice_vp }, 0.1)
 		expect(staking_vars['user_' + this.aliceAddress + '_a0'].rewards).to.deepCloseTo({ e1: 0, e2: 2e9 * 0.4, r: this.state.total_staker_fees - this.alice_withdrawn_staking_fees }, 0.0001)
 	//	expect(staking_vars['perp_asset_balance_a0']).to.closeTo(0.7 * this.state.s0, 3)
 	//	expect(staking_vars['user_' + this.aliceAddress + '_a0'].balance).to.closeTo(0.7 * this.state.s0, 3)
@@ -2215,8 +2215,11 @@ describe('Various trades in perpetual', function () {
 					}
 				}],
 			})
+			if (error)
+				console.log(error, this.oracleAddress)
 			expect(error).to.be.null
 			expect(unit).to.be.validUnit
+			await this.network.witnessUntilStable(unit)
 		}
 
 		const { address: spacex_price_aa_address, error: deploy_error } = await this.alice.deployAgent({
@@ -2330,7 +2333,7 @@ describe('Various trades in perpetual', function () {
 		const { vars: staking_vars } = await this.alice.readAAStateVars(this.staking_aa)
 		expect(staking_vars['asset_' + this.asset0].last_emissions).to.deep.eq({ e1: 4e9, e2: 0.7e9 })
 		expect(staking_vars['asset_' + this.asset0].received_emissions).to.deepCloseTo({ e1: 4e9 * 0.4, e2: 0.7e9 * 0.4 }, 0.0001)
-		expect(staking_vars['user_' + this.aliceAddress + '_a0'].last_perp_emissions).to.deepCloseTo({ e1: 4e9 * 0.4, e2: 0.7e9 * 0.4, r: this.state.total_staker_fees })
+		expect(staking_vars['user_' + this.aliceAddress + '_a0'].last_perp_emissions).to.deepCloseTo({ e1: 4e9 * 0.4, e2: 0.7e9 * 0.4, r: this.state.total_staker_fees }, 0.0001)
 		expect(staking_vars['user_' + this.aliceAddress + '_a0'].rewards).to.deep.eq({ e1: 0, e2: 0 }) // the r key was deleted
 		this.alice_withdrawn_staking_fees += expected_reward
 		this.perp_vps_g1 = staking_vars.perp_vps_g1

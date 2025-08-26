@@ -103,13 +103,14 @@
 			$c1 = $state.coef;
 			$s0_share = $a0 * $pow2($s0 * $c1 / $r);
 			$min_s0_share = $get_min_s0_share();
+		//	log({min_s0_share: $min_s0_share, s0_share: $s0_share});
 			if ($s0_share < $min_s0_share){
 				$new_a0 = ($pow2($r/$c1/$s0) - $a0) / (1/$min_s0_share - 1);
 				$new_c2 = $r/$s0 * sqrt($min_s0_share/$new_a0);
 				require($new_a0 > $a0, "a0 should grow");
-				require($new_c2 < $c, "c should fall");
+				require($new_c2 < $c1, "c should fall");
 				$state.a0 = $new_a0;
-				$state.coef = $new_c;
+				$state.coef = $new_c2;
 			}
 		};
 

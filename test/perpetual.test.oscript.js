@@ -57,7 +57,7 @@ describe('Various trades in perpetual', function () {
 			.with.agent({ perp_base })
 			.with.agent({ factory })
 			.with.wallet({ oracle: {base: 1e9} })
-			.with.wallet({ alice: {base: 100000e9, ousd: 10000e9, wbtc: 1000e8} })
+			.with.wallet({ alice: {base: 200000e9, ousd: 10000e9, wbtc: 1000e8} })
 			.with.wallet({ bob: {base: 1000e9, ousd: 10000e9, wbtc: 10e8} })
 			.with.wallet({ osw: {base: 100e9, oswap: 10000e9, oswap2: 10000e9} })
 		//	.with.explorer()
@@ -252,8 +252,8 @@ describe('Various trades in perpetual', function () {
 	})
 	
 	it('Alice adds liquidity to GBYTE-WBTC pool', async () => {
-		const gbyte_amount = 10000e9
-		const wbtc_amount = 10e8
+		const gbyte_amount = 100000e9
+		const wbtc_amount = 100e8
 		const { unit, error } = await this.alice.sendMulti({
 			outputs_by_asset: {
 				base: [{ address: this.oswap_aa, amount: gbyte_amount + 1e4 }],
@@ -331,6 +331,7 @@ describe('Various trades in perpetual', function () {
 				reserve_price_aa: this.reserve_price_aa,
 				swap_fee: this.swap_fee,
 				arb_profit_tax: this.arb_profit_tax,
+				token_share_threshold: 2.5,
 			},
 		})
 		expect(error).to.be.null
@@ -629,7 +630,7 @@ describe('Various trades in perpetual', function () {
 	})
 
 	it('Alice buys BTC-pegged asset in a presale', async () => {
-		const amount = 1.1e9
+		const amount = 100.1e9
 		const { unit, error } = await this.alice.sendMulti({
 			outputs_by_asset: {
 				[this.reserve_asset]: [{ address: this.perp_aa, amount: amount + this.network_fee_on_top }],
@@ -705,7 +706,7 @@ describe('Various trades in perpetual', function () {
 		await this.timetravel('14d')
 		const initial_asset0_price = await this.get_price(this.asset0)
 		const reserve_price = await this.executeGetter(this.reserve_price_aa, 'get_reserve_price');
-		const new_issued_tokens = Math.floor(1e9 * reserve_price / 20000 / this.multiplier)
+		const new_issued_tokens = Math.floor(100e9 * reserve_price / 20000 / this.multiplier)
 		console.log('issued BTC tokens', new_issued_tokens)
 		const { unit, error } = await this.alice.triggerAaWithData({
 			toAddress: this.perp_aa,
@@ -860,7 +861,83 @@ describe('Various trades in perpetual', function () {
 	})
 
 
+	it('Post a new data feed with a higher BTC price to push s0 share below min_s0_share', async () => {
+		const btc_price = 58_000
+		const { unit, error } = await this.oracle.sendMulti({
+			messages: [{
+				app: 'data_feed',
+				payload: {
+					BTC_USD: btc_price,
+					GBYTE_USD: 20,
+				}
+			}],
+		})
+		expect(error).to.be.null
+		expect(unit).to.be.validUnit
+
+		const { unitObj } = await this.oracle.getUnitInfo({ unit: unit })
+		const dfMessage = unitObj.messages.find(m => m.app === 'data_feed')
+		expect(dfMessage.payload).to.deep.equalInAnyOrder({
+			BTC_USD: btc_price,
+			GBYTE_USD: 20,
+		})
+		await this.network.witnessUntilStable(unit)
+	})
+
+
+	it('Alice buys more BTC after the price got corrected upward to the oracle price', async () => {
+		await this.timetravel('3d')
+		const amount = 0.01e9
+		const res = await this.get_exchange_result(this.btc_asset, 0, amount)
+
+		const { unit, error } = await this.alice.sendMulti({
+			outputs_by_asset: {
+				[this.reserve_asset]: [{ address: this.perp_aa, amount: amount + this.network_fee_on_top }],
+				...this.bounce_fees
+			},
+			messages: [{
+				app: 'data',
+				payload: {
+					asset: this.btc_asset,
+				}
+			}]
+		})
+		expect(error).to.be.null
+		expect(unit).to.be.validUnit
+
+		const { response } = await this.network.getAaResponseToUnitOnNode(this.alice, unit)
+		console.log('logs', JSON.stringify(response.logs, null, 2))
+		console.log(response.response.error)
+	//	await this.network.witnessUntilStable(response.response_unit)
+		expect(response.response.error).to.be.undefined
+		expect(response.bounced).to.be.false
+		expect(response.response_unit).to.be.validUnit
+		expect(response.response.responseVars.arb_profit_tax).to.be.gte(0)
+
+		const { unitObj } = await this.alice.getUnitInfo({ unit: response.response_unit })
+		console.log(Utils.getExternalPayments(unitObj))
+		expect(Utils.getExternalPayments(unitObj)).to.deep.equalInAnyOrder([
+			{
+				asset: this.btc_asset,
+				address: this.aliceAddress,
+				amount: res.delta_s,
+			},
+		])
+
+		const { vars } = await this.alice.readAAStateVars(this.perp_aa)
+		console.log('perp vars', vars)
+		this.state = vars.state
+
+		await this.checkCurve()
+
+		let price = await this.get_price(this.btc_asset)
+		console.log({ price })
+		
+	})
+
+
 	it('Alice harvests staker fee rewards', async () => {
+	//	process.exit()
 		const expected_reward = this.state.total_staker_fees
 		const rewards = await this.get_rewards(this.aliceAddress, this.asset0)
 		expect(rewards).to.deep.eq({ r: expected_reward })
@@ -1083,7 +1160,7 @@ describe('Various trades in perpetual', function () {
 		await this.timetravel('8d')
 
 		const initial_asset0_price = await this.get_price(this.asset0)
-		const initial_btc_price = await this.get_price(this.btc_asset)
+		const initial_btc_price = await this.get_price(this.btc_asset, false)
 		
 		const new_issued_tokens = Math.floor(1e9 / 2.5)
 		const { unit, error } = await this.alice.triggerAaWithData({
@@ -1120,7 +1197,7 @@ describe('Various trades in perpetual', function () {
 		this.state = vars.state
 
 		const final_asset0_price = await this.get_price(this.asset0)
-		const final_btc_price = await this.get_price(this.btc_asset)
+		const final_btc_price = await this.get_price(this.btc_asset, false)
 		expect(final_asset0_price).to.equalWithPrecision(initial_asset0_price, 6)
 		expect(final_btc_price).to.equalWithPrecision(initial_btc_price, 6)
 

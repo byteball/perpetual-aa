@@ -81,10 +81,12 @@
 		//	$asset_info.a = $asset_info.a + $delta_a; // stays positive
 		//	$state.coef = $c / sqrt(1 + $delta_a * $pow2($s * $c / $r));
 
-			$new_c = $c * sqrt(1 - $s * $r * $delta_p / ($r*$r - $a * $pow2($c * $s)));
-			require(($new_c - $c) * $delta_p <= 0, "c should change opposite to p");
-			$new_a = ($p + $delta_p) * $r / $new_c/$new_c / $s;
-			require(($new_a - $a) * $delta_p >= 0, "a should change as p");
+			$m = $s * $r / ($r*$r - $a * $pow2($c * $s));
+			$capped_delta_p = (1 - $m * $delta_p > 0) ? $delta_p : 0.5/$m; // to avoid negative sqrt
+			$new_c = $c * sqrt(1 - $m * $capped_delta_p);
+			require(($new_c - $c) * $capped_delta_p <= 0, "c should change opposite to p");
+			$new_a = ($p + $capped_delta_p) * $r / $new_c/$new_c / $s;
+			require(($new_a - $a) * $capped_delta_p >= 0, "a should change as p");
 			$asset_info.a = $new_a;
 			$state.coef = $new_c;
 

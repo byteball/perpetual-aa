@@ -936,6 +936,80 @@ describe('Various trades in perpetual', function () {
 	})
 
 
+	it('Post a new data feed with a higher BTC price to make the reserve insufficient to maintain the target price and cause negative sqrt', async () => {
+		const btc_price = 60_000
+		const { unit, error } = await this.oracle.sendMulti({
+			messages: [{
+				app: 'data_feed',
+				payload: {
+					BTC_USD: btc_price,
+					GBYTE_USD: 20,
+				}
+			}],
+		})
+		expect(error).to.be.null
+		expect(unit).to.be.validUnit
+
+		const { unitObj } = await this.oracle.getUnitInfo({ unit: unit })
+		const dfMessage = unitObj.messages.find(m => m.app === 'data_feed')
+		expect(dfMessage.payload).to.deep.equalInAnyOrder({
+			BTC_USD: btc_price,
+			GBYTE_USD: 20,
+		})
+		await this.network.witnessUntilStable(unit)
+	})
+
+
+	it('Alice buys more BTC after the price got partially corrected upward to the oracle price', async () => {
+		await this.timetravel('3d')
+		const amount = 0.01e9
+		const res = await this.get_exchange_result(this.btc_asset, 0, amount)
+
+		const { unit, error } = await this.alice.sendMulti({
+			outputs_by_asset: {
+				[this.reserve_asset]: [{ address: this.perp_aa, amount: amount + this.network_fee_on_top }],
+				...this.bounce_fees
+			},
+			messages: [{
+				app: 'data',
+				payload: {
+					asset: this.btc_asset,
+				}
+			}]
+		})
+		expect(error).to.be.null
+		expect(unit).to.be.validUnit
+
+		const { response } = await this.network.getAaResponseToUnitOnNode(this.alice, unit)
+		console.log('logs', JSON.stringify(response.logs, null, 2))
+		console.log(response.response.error)
+	//	await this.network.witnessUntilStable(response.response_unit)
+		expect(response.response.error).to.be.undefined
+		expect(response.bounced).to.be.false
+		expect(response.response_unit).to.be.validUnit
+		expect(response.response.responseVars.arb_profit_tax).to.be.gte(0)
+
+		const { unitObj } = await this.alice.getUnitInfo({ unit: response.response_unit })
+		console.log(Utils.getExternalPayments(unitObj))
+		expect(Utils.getExternalPayments(unitObj)).to.deep.equalInAnyOrder([
+			{
+				asset: this.btc_asset,
+				address: this.aliceAddress,
+				amount: res.delta_s,
+			},
+		])
+
+		const { vars } = await this.alice.readAAStateVars(this.perp_aa)
+		console.log('perp vars', vars)
+		this.state = vars.state
+
+		await this.checkCurve()
+
+		let price = await this.get_price(this.btc_asset)
+		console.log({ price })
+	})
+
+
 	it('Alice harvests staker fee rewards', async () => {
 	//	process.exit()
 		const expected_reward = this.state.total_staker_fees

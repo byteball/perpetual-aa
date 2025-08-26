@@ -226,7 +226,7 @@
 			else
 				$asset_info.supply = $new_s;
 			
-			$new_p = $c*$c * $a * $new_s / $new_r; // fix
+			$new_p = $c*$c * ($bAsset0 ? $state.a0 : $a) * $new_s / $new_r; // the 'a' has changed if trading asset0
 		//	log('new_p = ', $new_p);
 			
 		//	if ($tokens)

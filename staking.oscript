@@ -422,7 +422,7 @@ track votes as normalized VP:
 					if (exists($value)){
 						if ($name == 'swap_fee' OR $name == 'min_s0_share')
 							require(typeof($value) == 'number' AND $value >= 0 AND $value < 1, "invalid value");
-						if ($name == 'stakers_fee_share')
+						else if ($name == 'stakers_fee_share')
 							require(typeof($value) == 'number' AND $value >= 0 AND $value <= 1, "invalid value");
 						else if ($name == 'arb_profit_tax' OR $name == 'token_share_threshold')
 							require(typeof($value) == 'number' AND $value >= 0, "invalid value");

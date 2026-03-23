@@ -2440,6 +2440,7 @@ describe('Various trades in perpetual', function () {
 		console.log(response.response.error)
 	//	expect(response.response.error?.message).to.be.eq(`one of secondary AAs bounced with error: ${this.perp_aa}: only preipo can set a price AA`)
 		expect(response.response.error?.message).to.be.eq(`one of secondary AAs bounced with error: `)
+		expect(response.response.error.callChain.next.message).to.be.eq(`only preipo can set a price AA`)
 		expect(response.bounced).to.be.true
 	})
 	

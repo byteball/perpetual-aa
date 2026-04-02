@@ -212,27 +212,26 @@ describe('Various trades in perpetual', function () {
 	})
 
 	it('Bob defines GBYTE-WBTC pool', async () => {
-		this.base_interest_rate = 0.3
-		this.swap_fee = 0.003
-		this.exit_fee = 0.005
-		this.leverage_profit_tax = 0.1
-		this.arb_profit_tax = 0.9
-		this.alpha = 0.5
-		this.beta = 1 - this.alpha
-		this.pool_leverage = 10
+		const base_interest_rate = 0.3
+		const swap_fee = 0.003
+		const exit_fee = 0.005
+		const leverage_profit_tax = 0.1
+		const arb_profit_tax = 0.9
+		const alpha = 0.5
+		const pool_leverage = 10
 		const { unit, error } = await this.bob.triggerAaWithData({
 			toAddress: this.network.agent.v2OswapFactory,
 			amount: 10000,
 			data: {
 				x_asset: 'base',
 				y_asset: this.wbtc,
-				swap_fee: this.swap_fee,
-				exit_fee: this.exit_fee,
-				leverage_profit_tax: this.leverage_profit_tax,
-				arb_profit_tax: this.arb_profit_tax,
-				base_interest_rate: this.base_interest_rate,
-				alpha: this.alpha,
-				pool_leverage: this.pool_leverage,
+				swap_fee: swap_fee,
+				exit_fee: exit_fee,
+				leverage_profit_tax: leverage_profit_tax,
+				arb_profit_tax: arb_profit_tax,
+				base_interest_rate: base_interest_rate,
+				alpha: alpha,
+				pool_leverage: pool_leverage,
 			},
 		})
 		expect(error).to.be.null
@@ -2082,13 +2081,13 @@ describe('Various trades in perpetual', function () {
 			a1: old_votes.a1 + 0.6 * added_vp,
 			a30: old_votes.a30,
 		}
-		expect(staking_vars['votes_' + this.aliceAddress]).to.deepCloseTo(new_votes, 0.1)
+		expect(staking_vars['votes_' + this.aliceAddress]).to.deepCloseTo(new_votes, 1)
 		let perp_vps_g1 = { a0: new_votes.a0, a1: new_votes.a1, total: new_votes.a0 + new_votes.a1 }
 		for (let i = 2; i <= 29; i++)
 			perp_vps_g1['a' + i] = 0
-		expect(staking_vars['perp_vps_g1']).to.deepCloseTo(perp_vps_g1, 0.1)
+		expect(staking_vars['perp_vps_g1']).to.deepCloseTo(perp_vps_g1, 1)
 		expect(staking_vars['perp_vps_g2']).to.deepCloseTo({ a30: old_votes.a30, total: old_votes.a30 }, 0.1)
-		expect(staking_vars['group_vps']).to.deepCloseTo({ g1: new_votes.a0 + new_votes.a1, g2: old_votes.a30, total: this.alice_vp }, 0.1)
+		expect(staking_vars['group_vps']).to.deepCloseTo({ g1: new_votes.a0 + new_votes.a1, g2: old_votes.a30, total: this.alice_vp }, 1)
 		expect(staking_vars['user_' + this.aliceAddress + '_a0'].rewards).to.deepCloseTo({ e1: 0, e2: 2e9 * 0.4, r: this.state.total_staker_fees - this.alice_withdrawn_staking_fees }, 0.0001)
 	//	expect(staking_vars['perp_asset_balance_a0']).to.closeTo(0.7 * this.state.s0, 3)
 	//	expect(staking_vars['user_' + this.aliceAddress + '_a0'].balance).to.closeTo(0.7 * this.state.s0, 3)

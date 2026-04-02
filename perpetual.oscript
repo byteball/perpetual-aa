@@ -9,16 +9,6 @@
 			exists($value) ? $value : (exists(params[$name]) ? params[$name] : $default)
 		};
 
-		$get_swap_fee = () => $get_param('swap_fee', 0.003);
-		$get_arb_profit_tax = () => $get_param('arb_profit_tax', 0.9);
-		$get_adjustment_period = () => $get_param('adjustment_period', 3 * 24 * 3600); // 3 days
-		$get_presale_period = () => $get_param('presale_period', 14 * 24 * 3600); // 14 days
-		$get_auction_price_halving_period = () => $get_param('auction_price_halving_period', 3 * 24 * 3600); // 3 days
-		$get_token_share_threshold = () => $get_param('token_share_threshold', 0.1); // 10%
-		$get_min_s0_share = () => $get_param('min_s0_share', 0.01); // 1%
-		$get_stakers_fee_share = () => $get_param('stakers_fee_share', 0.5); // 50%
-		$get_reserve_price_aa = () => $get_param('reserve_price_aa');
-
 		$pow2 = $x => $x*$x;
 		
 		$adjust_prices = ($asset, $asset_info, $state) => {
@@ -27,6 +17,8 @@
 			
 			$elapsed = timestamp - $asset_info.last_ts;
 			$asset_info.last_ts = timestamp;
+
+			$variables = var['variables'];
 
 			if ($asset_info.presale AND $asset_info.preipo){
 				$target_price = $asset_info.last_auction_price;
@@ -37,7 +29,7 @@
 					return;
 				// $target_price is in terms of the reserve currency.
 				// Both $get_target_price() and $get_reserve_price() return prices in USD (or some other common currency)
-				$target_price = $price_aa#3.$get_target_price() / $get_reserve_price_aa()#8.$get_reserve_price();
+				$target_price = $price_aa#3.$get_target_price() / $variables.reserve_price_aa#8.$get_reserve_price();
 				if (typeof($target_price) != 'number' OR $target_price < 0)
 					return;
 			}
@@ -47,7 +39,7 @@
 					$asset_info.presale_amount
 					AND (
 						timestamp >= $asset_info.presale_finish_ts 
-						OR $asset_info.presale_amount >= $get_token_share_threshold() * $state.reserve
+						OR $asset_info.presale_amount >= $variables.token_share_threshold * $state.reserve
 						// we can exceed max_tokens
 						OR $asset_info.preipo AND $asset_info.presale_amount / $target_price >= $asset_info.max_tokens
 					)
@@ -74,7 +66,7 @@
 				return;
 
 			$full_delta_p = $target_price - $p;
-			$adjustment_period = $get_adjustment_period();
+			$adjustment_period = $variables.adjustment_period;
 			$delta_p = $elapsed >= $adjustment_period ? $full_delta_p : $elapsed/$adjustment_period*$full_delta_p;
 
 		//	$delta_a = $a * $delta_p/$p; // >= -$a
@@ -104,7 +96,7 @@
 			$a0 = $state.a0;
 			$c1 = $state.coef;
 			$s0_share = $a0 * $pow2($s0 * $c1 / $r);
-			$min_s0_share = $get_min_s0_share();
+			$min_s0_share = $variables.min_s0_share;
 		//	log({min_s0_share: $min_s0_share, s0_share: $s0_share});
 			if ($s0_share < $min_s0_share){
 				$new_a0 = ($pow2($r/$c1/$s0) - $a0) / (1/$min_s0_share - 1);
@@ -122,7 +114,8 @@
 			$asset_info = var['asset_'||$asset];
 			require($asset_info, "no such asset");
 			require($asset_info.preipo, "not a pre-IPO");
-			$asset_info.initial_auction_price / 2^((timestamp - $asset_info.creation_ts)/$get_auction_price_halving_period())
+			$variables = var['variables'];
+			$asset_info.initial_auction_price / 2^((timestamp - $asset_info.creation_ts)/$variables.auction_price_halving_period)
 		};
 
 		$get_price = ($asset, $bWithPriceAdjustment) => {
@@ -146,6 +139,8 @@
 		$get_exchange_result_by_state = ($tokens, $delta_r, $asset, $asset_info, $state, $trigger_initial_address) => {
 			require($tokens > 0 AND $delta_r == 0 OR $tokens == 0 AND $delta_r > 0, "invalid input");
 
+			$variables = var['variables'];
+
 			$op = $tokens ? 'sell' : 'buy';
 			$bAsset0 = $state.asset0 == $asset;
 
@@ -165,9 +160,9 @@
 			$recent_delta_s = $bMerge ? $last_trade.delta_s : 0;
 			$initial_p = $bMerge ? ($tokens ? max($p, $last_trade.initial_p) : min($p, $last_trade.initial_p)) : $p;
 
-			$swap_fee_rate = $bInitial ? 0 : $get_swap_fee();
-			$arb_profit_tax_rate = $bInitial ? 0 : $get_arb_profit_tax();
-			$stakers_fee_share = $get_stakers_fee_share();
+			$swap_fee_rate = $bInitial ? 0 : $variables.swap_fee;
+			$arb_profit_tax_rate = $bInitial ? 0 : $variables.arb_profit_tax;
+			$stakers_fee_share = $variables.stakers_fee_share;
 			$a0_fee_share = 1 - $stakers_fee_share;
 
 			$get_new_s = ($new_r, $fee_rate) => sqrt($s*$s + ($new_r*$new_r - $r*$r)/$c/$c/$a * (1 - $fee_rate));
@@ -303,6 +298,7 @@
 			bounce("bad to address");
 		$to = trigger.data.to OTHERWISE trigger.address;
 
+		$variables = var['variables'];
 
 		$staking_base_aa = 'HPJQ6ZCB2T3JTIVAMDM5QESZWNJNJERO';
 
@@ -370,6 +366,17 @@
 							var['staking_aa'] = $staking_aa_address;
 							var['state'] = {asset0: response_unit, a0: 1, s0: 0, reserve: 0, coef: 1, total_staker_fees: 0};
 							response['asset'] = response_unit;
+							var['variables'] = {
+								swap_fee: 0.003,
+								arb_profit_tax: 0.9,
+								adjustment_period: 3 * 24 * 3600, // 3 days
+								presale_period: 14 * 24 * 3600, // 14 days
+								auction_price_halving_period: 3 * 24 * 3600, // 3 days
+								token_share_threshold: 0.1, // 10%
+								min_s0_share: 0.01, // 1%
+								stakers_fee_share: 0.5, // 50%
+								reserve_price_aa: false,
+							} || params;
 						}`
 					}
 				]
@@ -436,7 +443,7 @@
 									presale: true, 
 									presale_amount: 0, 
 									creation_ts: timestamp,
-									presale_finish_ts: timestamp + $get_presale_period(),
+									presale_finish_ts: timestamp + $variables.presale_period,
 								};
 								if ($name == 'add_price_aa')
 									$a_info.price_aa = trigger.data.price_aa;
@@ -515,7 +522,7 @@
 							var['contribution_'||trigger.address||'_'||$asset] += $delta;
 							$asset_info.presale_amount = $asset_info.presale_amount + $delta;
 							if ($asset_info.preipo AND $bAdd)
-								$asset_info.last_auction_price = $asset_info.initial_auction_price / 2^((timestamp - $asset_info.creation_ts)/$get_auction_price_halving_period());
+								$asset_info.last_auction_price = $asset_info.initial_auction_price / 2^((timestamp - $asset_info.creation_ts)/$variables.auction_price_halving_period);
 							var['asset_'||$asset] = $asset_info;
 						}`
 					}

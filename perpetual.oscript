@@ -231,6 +231,10 @@
 
 			$fee_percent = $total_fee / ($tokens ? $payout : $delta_r) * 100;
 			$state.total_staker_fees = $state.total_staker_fees + $staker_fee;
+			$staking_aa = var['staking_aa'];
+			$staking_state = var[$staking_aa]['state'];
+			if ($staking_state.total_normalized_vp)
+				$state.total_staker_fees_per_vp = $state.total_staker_fees_per_vp + $staker_fee / $staking_state.total_normalized_vp;
 
 			if ($bAsset0){
 				$state[$key].delta_s = ($bMerge ? $last_trade.delta_s : 0) + $delta_s;
@@ -300,7 +304,7 @@
 
 		$variables = var['variables'];
 
-		$staking_base_aa = 'HPJQ6ZCB2T3JTIVAMDM5QESZWNJNJERO';
+		$staking_base_aa = 'U3IJX2VXNVMSYX3SBNB3W2NZFQWABFP7';
 
 	}`,
 	messages: {
@@ -364,7 +368,7 @@
 						app: 'state',
 						state: `{
 							var['staking_aa'] = $staking_aa_address;
-							var['state'] = {asset0: response_unit, a0: 1, s0: 0, reserve: 0, coef: 1, total_staker_fees: 0};
+							var['state'] = {asset0: response_unit, a0: 1, s0: 0, reserve: 0, coef: 1, total_staker_fees: 0, total_staker_fees_per_vp: 0};
 							response['asset'] = response_unit;
 							var['variables'] = {
 								swap_fee: 0.003,
@@ -481,6 +485,14 @@
 							]
 						}
 					},
+					{
+						app: 'state',
+						state: `{
+							$state.total_staker_fees = $state.total_staker_fees - trigger.data.amount;
+							require($state.total_staker_fees >= 0, "total available staker fees would become negative");
+							var['state'] = $state;
+						}`
+					}
 				]
 			},
 

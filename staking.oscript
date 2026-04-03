@@ -19,7 +19,7 @@ track votes as normalized VP:
 	doc_url: "https://pyth.ooo/staking.json",
 	getters: `{
 
-		$lib_aa = 'EY4RFQ7QJAVHGOEQDSCODJYSSQER75DY';
+		$lib_aa = '7WPGIFU52VJW6FDI2IAMIZ7UUS7QZ2GJ';
 		$common_ts = 1657843200; // Fri Jul 15 2022 00:00:00 GMT+0000
 		$year = 31104000; // 360 * 24 * 3600;
 		$max_perps_per_group = 30;

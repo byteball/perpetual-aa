@@ -1,13 +1,11 @@
 {
 	getters: `{
 		
-		$distribute_staker_fees = ($state, $aa_state, $user_perp) => {
-			$user_share = $user_perp.normalized_vp/$state.total_normalized_vp;
+		$distribute_staker_fees = ($aa_state, $user_perp) => {
+			$new_fees_per_vp_since_prev_visit = $aa_state.total_staker_fees_per_vp - $user_perp.last_perp_emissions.r;
+			$user_perp.last_perp_emissions.r = $aa_state.total_staker_fees_per_vp;
 
-			$new_fees_since_prev_visit = $aa_state.total_staker_fees - $user_perp.last_perp_emissions.r;
-			$user_perp.last_perp_emissions.r = $aa_state.total_staker_fees;
-
-			$reward = $new_fees_since_prev_visit * $user_share;
+			$reward = $new_fees_per_vp_since_prev_visit * $user_perp.normalized_vp;
 			$user_perp.rewards.r = $user_perp.rewards.r + $reward;
 		};
 
@@ -16,7 +14,7 @@
 				return;
 			
 			if ($bAsset0)
-				$distribute_staker_fees($state, $aa_state, $user_perp);
+				$distribute_staker_fees($aa_state, $user_perp);
 			
 			$perp_share = $perp_vps[$perp.asset_key]/$state.total_normalized_vp;
 			$user_share = $bAsset0 

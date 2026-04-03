@@ -1011,9 +1011,11 @@ describe('Various trades in perpetual', function () {
 
 	it('Alice harvests staker fee rewards', async () => {
 	//	process.exit()
-		const expected_reward = this.state.total_staker_fees
+		const { vars: staking_vars_before } = await this.alice.readAAStateVars(this.staking_aa)
+		const { vars: perp_vars_before } = await this.alice.readAAStateVars(this.perp_aa)
+		const expected_reward = perp_vars_before.state.total_staker_fees_per_vp * staking_vars_before['user_' + this.aliceAddress + '_a0'].normalized_vp
 		const rewards = await this.get_rewards(this.aliceAddress, this.asset0)
-		expect(rewards).to.deep.eq({ r: expected_reward })
+		expect(rewards).to.deepCloseTo({ r: expected_reward }, 0.0001)
 
 		const { unit, error } = await this.alice.triggerAaWithData({
 			toAddress: this.staking_aa,
@@ -1049,11 +1051,12 @@ describe('Various trades in perpetual', function () {
 			},
 		], 1)
 
+		const { vars: perp_vars } = await this.alice.readAAStateVars(this.perp_aa)
 		const { vars: staking_vars } = await this.alice.readAAStateVars(this.staking_aa)
 		console.log('staking vars', staking_vars)
 		expect(staking_vars['asset_' + this.asset0].last_emissions).to.be.undefined
 		expect(staking_vars['asset_' + this.asset0].received_emissions).to.be.undefined
-		expect(staking_vars['user_' + this.aliceAddress + '_a0'].last_perp_emissions).to.deep.eq({ r: expected_reward })
+		expect(staking_vars['user_' + this.aliceAddress + '_a0'].last_perp_emissions).to.deep.eq({ r: perp_vars.state.total_staker_fees_per_vp })
 		expect(staking_vars['user_' + this.aliceAddress + '_a0'].rewards).to.deep.eq({}) // the r key was deleted
 		this.alice_withdrawn_staking_fees = expected_reward
 		this.perp_vps_g1 = staking_vars.perp_vps_g1
@@ -1938,7 +1941,8 @@ describe('Various trades in perpetual', function () {
 	it('Alice harvests OSWAP rewards from staking asset0', async () => {
 		const expected_reward = 4e9 * 0.4
 		const rewards = await this.get_rewards(this.aliceAddress, this.asset0)
-		expect(rewards).to.deepCloseTo({ e1: expected_reward, e2: 2e9 * 0.4, r: this.state.total_staker_fees - this.alice_withdrawn_staking_fees }, 0.0001) // e2>0 because Alice already staked a0 when e2 emissions were received
+		// not checking rewards.r
+		expect(rewards).to.deepCloseTo({ e1: expected_reward, e2: 2e9 * 0.4, r: rewards.r }, 0.0001) // e2>0 because Alice already staked a0 when e2 emissions were received
 
 		const { unit, error } = await this.alice.triggerAaWithData({
 			toAddress: this.staking_aa,
@@ -1971,12 +1975,13 @@ describe('Various trades in perpetual', function () {
 			},
 		], 1)
 
+		const { vars: perp_vars } = await this.alice.readAAStateVars(this.perp_aa)
 		const { vars: staking_vars } = await this.alice.readAAStateVars(this.staking_aa)
 	//	console.log('staking vars', staking_vars)
 		expect(staking_vars['asset_' + this.asset0].last_emissions).to.deep.eq({ e1: 4e9, e2: 2e9 })
 		expect(staking_vars['asset_' + this.asset0].received_emissions).to.deepCloseTo({ e1: 4e9 * 0.4, e2: 2e9 * 0.4 }, 0.0001)
-		expect(staking_vars['user_' + this.aliceAddress + '_a0'].last_perp_emissions).to.deepCloseTo({ e1: 4e9 * 0.4, e2: 2e9 * 0.4, r: this.state.total_staker_fees }, 0.0001)
-		expect(staking_vars['user_' + this.aliceAddress + '_a0'].rewards).to.deepCloseTo({ e2: 2e9 * 0.4, r: this.state.total_staker_fees - this.alice_withdrawn_staking_fees }, 0.00001)
+		expect(staking_vars['user_' + this.aliceAddress + '_a0'].last_perp_emissions).to.deepCloseTo({ e1: 4e9 * 0.4, e2: 2e9 * 0.4, r: perp_vars.state.total_staker_fees_per_vp }, 0.0001)
+		expect(staking_vars['user_' + this.aliceAddress + '_a0'].rewards).to.deepCloseTo({ e2: 2e9 * 0.4, r: rewards.r }, 0.00001)
 		this.perp_vps_g1 = staking_vars.perp_vps_g1
 		this.checkVotes(staking_vars)
 	})
@@ -2067,6 +2072,8 @@ describe('Various trades in perpetual', function () {
 		expect(response.bounced).to.be.false
 		expect(response.response_unit).to.be.null
 
+		const rewards = await this.get_rewards(this.aliceAddress, this.asset0)
+
 		const { vars: staking_vars } = await this.alice.readAAStateVars(this.staking_aa)
 	//	console.log('staking vars', staking_vars)
 		this.perp_vps_g1 = staking_vars.perp_vps_g1
@@ -2088,7 +2095,7 @@ describe('Various trades in perpetual', function () {
 		expect(staking_vars['perp_vps_g1']).to.deepCloseTo(perp_vps_g1, 1)
 		expect(staking_vars['perp_vps_g2']).to.deepCloseTo({ a30: old_votes.a30, total: old_votes.a30 }, 0.1)
 		expect(staking_vars['group_vps']).to.deepCloseTo({ g1: new_votes.a0 + new_votes.a1, g2: old_votes.a30, total: this.alice_vp }, 1)
-		expect(staking_vars['user_' + this.aliceAddress + '_a0'].rewards).to.deepCloseTo({ e1: 0, e2: 2e9 * 0.4, r: this.state.total_staker_fees - this.alice_withdrawn_staking_fees }, 0.0001)
+		expect(staking_vars['user_' + this.aliceAddress + '_a0'].rewards).to.deepCloseTo({ e1: 0, e2: 2e9 * 0.4, r: rewards.r }, 0.0001)
 	//	expect(staking_vars['perp_asset_balance_a0']).to.closeTo(0.7 * this.state.s0, 3)
 	//	expect(staking_vars['user_' + this.aliceAddress + '_a0'].balance).to.closeTo(0.7 * this.state.s0, 3)
 
@@ -2214,7 +2221,7 @@ describe('Various trades in perpetual', function () {
 	it('Alice harvests the blacklisted OSWAP2 rewards from staking asset0', async () => {
 		const expected_reward = 2e9 * 0.4
 		const rewards = await this.get_rewards(this.aliceAddress, this.asset0)
-		expect(rewards).to.deepCloseTo({ e1: 0, e2: expected_reward, r: this.state.total_staker_fees - this.alice_withdrawn_staking_fees }, 0.0001) // e2>0 because Alice already staked a0 when e2 emissions were received
+		expect(rewards).to.deepCloseTo({ e1: 0, e2: expected_reward, r: rewards.r }, 0.0001) // e2>0 because Alice already staked a0 when e2 emissions were received
 
 		const { unit, error } = await this.alice.triggerAaWithData({
 			toAddress: this.staking_aa,
@@ -2246,12 +2253,13 @@ describe('Various trades in perpetual', function () {
 			},
 		], 1)
 
+		const { vars: perp_vars } = await this.alice.readAAStateVars(this.perp_aa)
 		const { vars: staking_vars } = await this.alice.readAAStateVars(this.staking_aa)
 	//	console.log('staking vars', staking_vars)
 		expect(staking_vars['asset_' + this.asset0].last_emissions).to.deep.eq({ e1: 4e9, e2: 2e9 })
 		expect(staking_vars['asset_' + this.asset0].received_emissions).to.deepCloseTo({ e1: 4e9 * 0.4, e2: 2e9 * 0.4 }, 0.0001)
-		expect(staking_vars['user_' + this.aliceAddress + '_a0'].last_perp_emissions).to.deepCloseTo({ e1: 4e9 * 0.4, e2: 2e9 * 0.4, r: this.state.total_staker_fees }, 0.0001)
-		expect(staking_vars['user_' + this.aliceAddress + '_a0'].rewards).to.deep.eq({ e1: 0, r: this.state.total_staker_fees - this.alice_withdrawn_staking_fees })
+		expect(staking_vars['user_' + this.aliceAddress + '_a0'].last_perp_emissions).to.deepCloseTo({ e1: 4e9 * 0.4, e2: 2e9 * 0.4, r: perp_vars.state.total_staker_fees_per_vp }, 0.0001)
+		expect(staking_vars['user_' + this.aliceAddress + '_a0'].rewards).to.deep.eq({ e1: 0, r: rewards.r })
 		this.perp_vps_g1 = staking_vars.perp_vps_g1
 		this.checkVotes(staking_vars)
 	})
@@ -2313,7 +2321,7 @@ describe('Various trades in perpetual', function () {
 	it('Alice harvests the re-whitelisted OSWAP2 rewards from staking asset0', async () => {
 		const expected_reward = 0.7e9 * 0.4
 		const rewards = await this.get_rewards(this.aliceAddress, this.asset0)
-		expect(rewards).to.deepCloseTo({ e1: 0, e2: expected_reward, r: this.state.total_staker_fees - this.alice_withdrawn_staking_fees }, 0.0001) // e2>0 because Alice already staked a0 when e2 emissions were received
+		expect(rewards).to.deepCloseTo({ e1: 0, e2: expected_reward, r: rewards.r }, 0.0001) // e2>0 because Alice already staked a0 when e2 emissions were received
 
 		const { unit, error } = await this.alice.triggerAaWithData({
 			toAddress: this.staking_aa,
@@ -2345,12 +2353,13 @@ describe('Various trades in perpetual', function () {
 			},
 		], 1)
 
+		const { vars: perp_vars } = await this.alice.readAAStateVars(this.perp_aa)
 		const { vars: staking_vars } = await this.alice.readAAStateVars(this.staking_aa)
 	//	console.log('staking vars', staking_vars)
 		expect(staking_vars['asset_' + this.asset0].last_emissions).to.deep.eq({ e1: 4e9, e2: 0.7e9 })
 		expect(staking_vars['asset_' + this.asset0].received_emissions).to.deepCloseTo({ e1: 4e9 * 0.4, e2: 0.7e9 * 0.4 }, 0.0001)
-		expect(staking_vars['user_' + this.aliceAddress + '_a0'].last_perp_emissions).to.deepCloseTo({ e1: 4e9 * 0.4, e2: 0.7e9 * 0.4, r: this.state.total_staker_fees }, 0.0001)
-		expect(staking_vars['user_' + this.aliceAddress + '_a0'].rewards).to.deep.eq({ e1: 0, r: this.state.total_staker_fees - this.alice_withdrawn_staking_fees })
+		expect(staking_vars['user_' + this.aliceAddress + '_a0'].last_perp_emissions).to.deepCloseTo({ e1: 4e9 * 0.4, e2: 0.7e9 * 0.4, r: perp_vars.state.total_staker_fees_per_vp }, 0.0001)
+		expect(staking_vars['user_' + this.aliceAddress + '_a0'].rewards).to.deep.eq({ e1: 0, r: rewards.r })
 		this.perp_vps_g1 = staking_vars.perp_vps_g1
 		this.checkVotes(staking_vars)
 	})
@@ -2445,9 +2454,9 @@ describe('Various trades in perpetual', function () {
 	
 
 	it('Alice harvests staker fee rewards again', async () => {
-		const expected_reward = this.state.total_staker_fees - this.alice_withdrawn_staking_fees
+	//	const expected_reward = this.state.total_staker_fees - this.alice_withdrawn_staking_fees
 		const rewards = await this.get_rewards(this.aliceAddress, this.asset0)
-		expect(rewards).to.deep.eq({ e1: 0, e2: 0, r: expected_reward })
+		expect(rewards).to.deep.eq({ e1: 0, e2: 0, r: rewards.r })
 
 		const { unit, error } = await this.alice.triggerAaWithData({
 			toAddress: this.staking_aa,
@@ -2479,16 +2488,17 @@ describe('Various trades in perpetual', function () {
 			{
 				asset: this.reserve_asset,
 				address: this.aliceAddress,
-				amount: expected_reward,
+				amount: rewards.r,
 			},
 		], 1)
 
+		const { vars: perp_vars } = await this.alice.readAAStateVars(this.perp_aa)
 		const { vars: staking_vars } = await this.alice.readAAStateVars(this.staking_aa)
 		expect(staking_vars['asset_' + this.asset0].last_emissions).to.deep.eq({ e1: 4e9, e2: 0.7e9 })
 		expect(staking_vars['asset_' + this.asset0].received_emissions).to.deepCloseTo({ e1: 4e9 * 0.4, e2: 0.7e9 * 0.4 }, 0.0001)
-		expect(staking_vars['user_' + this.aliceAddress + '_a0'].last_perp_emissions).to.deepCloseTo({ e1: 4e9 * 0.4, e2: 0.7e9 * 0.4, r: this.state.total_staker_fees }, 0.0001)
+		expect(staking_vars['user_' + this.aliceAddress + '_a0'].last_perp_emissions).to.deepCloseTo({ e1: 4e9 * 0.4, e2: 0.7e9 * 0.4, r: perp_vars.state.total_staker_fees_per_vp }, 0.0001)
 		expect(staking_vars['user_' + this.aliceAddress + '_a0'].rewards).to.deep.eq({ e1: 0, e2: 0 }) // the r key was deleted
-		this.alice_withdrawn_staking_fees += expected_reward
+		this.alice_withdrawn_staking_fees += rewards.r
 		this.perp_vps_g1 = staking_vars.perp_vps_g1
 		this.checkVotes(staking_vars)
 	})

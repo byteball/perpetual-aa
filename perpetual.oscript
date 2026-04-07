@@ -4,11 +4,6 @@
 
 		$trade_merge_period = 1; // seconds
 
-		$get_param = ($name, $default) => {
-			$value = var[$name];
-			exists($value) ? $value : (exists(params[$name]) ? params[$name] : $default)
-		};
-
 		$pow2 = $x => $x*$x;
 		
 		$adjust_prices = ($asset, $asset_info, $state) => {
@@ -465,8 +460,10 @@
 								var['asset_'||$asset] = $asset_info;
 								var['state'] = $state; // we adjusted prices since we had asset in trigger.data
 							}
-							else
-								var[$name] = $value;
+							else{
+								$variables[$name] = $value;
+								var['variables'] = $variables;
+							}
 						}`
 					}
 				]

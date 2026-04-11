@@ -339,7 +339,7 @@ track votes as normalized VP:
 										$emissions[$new_asset_key] = 0;
 										response['message'] = 'whitelisted';
 									}
-									else{ // revive a previously blacklisted reward asset
+									else if (!exists($emissions[$asset_key])){ // revive a previously blacklisted reward asset
 										$emissions[$asset_key] = 0;
 										response['message'] = 're-whitelisted';
 									}

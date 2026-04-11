@@ -299,7 +299,7 @@
 
 		$variables = var['variables'];
 
-		$staking_base_aa = 'U3IJX2VXNVMSYX3SBNB3W2NZFQWABFP7';
+		$staking_base_aa = 'RLQBCJIFVCQ73KKOEFKAR3DXCHXH57OX';
 
 	}`,
 	messages: {
